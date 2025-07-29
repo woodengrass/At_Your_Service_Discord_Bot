@@ -98,6 +98,7 @@ class TicketOpenButton(View):
             timestamp=datetime.datetime.utcnow()
         )
         ticket_message = await ticket_channel.send(embed=embed, view=TicketControlView(ticket_channel, interaction.user))
+        await ticket_message.pin()#置頂
 
         # 寫入 ticket.json
         data = load_tickets()

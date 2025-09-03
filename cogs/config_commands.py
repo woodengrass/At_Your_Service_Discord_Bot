@@ -2,12 +2,13 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from discord.ui import View, Button
+from utils.file_manager import load_json, save_json
 import os
 import json
 import datetime
 
 CONFIG_PATH = "config/honeypot_config.json"
-GUILD_ID = 1399108525954957442
+GUILD_ID = 1353379898705707079
 GUILD_OBJ = discord.Object(id=GUILD_ID)
 COUNT_FILE = "config/counting.json"
 WELCOME_FILE = "config/welcome_message.json"
@@ -260,7 +261,7 @@ class ConfigCommands(commands.Cog):
         await interaction.response.send_message(f"✅ 頻道名稱已更新為 `{new_name}` 並禁言所有人", ephemeral=True)
     @app_commands.guilds(GUILD_OBJ)
     @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.command(name="welcome", description="設定歡迎訊息")
+    @app_commands.command(name="set_welcome", description="設定歡迎訊息")
     @app_commands.describe(message="自訂義歡迎訊息")
     async def set_welcome(self, interaction: discord.Interaction, message: str):
         guild_id = str(interaction.guild.id)

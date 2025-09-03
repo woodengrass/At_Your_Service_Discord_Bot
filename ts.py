@@ -9,7 +9,7 @@ token = os.getenv("DISCORD_BOT_TOKEN")
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-GUILD_ID =   # 服务器ID，整数
+GUILD_ID =1353379898705707079
 
 @bot.event
 async def on_ready():

@@ -110,6 +110,8 @@ class LinkChecker(commands.Cog):
     async def check_google_safe_browsing(self, url: str) -> bool:
         """
         呼叫 Google Safe Browsing API 檢查網址是否為已知威脅。
+        Google 已將 v4 的 threatMatches:find 方法標示為棄用，改用 v5alpha1 的 urls:search，
+        此端點目前仍是 Google 標示的 Alpha 版本，格式未來仍可能調整。
 
         Args:
             url: 欲檢查的網址
@@ -120,28 +122,15 @@ class LinkChecker(commands.Cog):
         if not GOOGLE_API_KEY:
             return True
 
-        api_url = f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={GOOGLE_API_KEY}"
-
-        payload = {
-            "client": {
-                "clientId": "discord-bot",
-                "clientVersion": "1.0.0"
-            },
-            "threatInfo": {
-                "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE",
-                                "POTENTIALLY_HARMFUL_APPLICATION"],
-                "platformTypes": ["ANY_PLATFORM"],
-                "threatEntryTypes": ["URL"],
-                "threatEntries": [{"url": url}]
-            }
-        }
+        api_url = "https://safebrowsing.googleapis.com/v5alpha1/urls:search"
+        params = {"key": GOOGLE_API_KEY, "urls[]": url}
 
         try:
-            async with self.session.post(api_url, json=payload, timeout=3) as response:
+            async with self.session.get(api_url, params=params, timeout=3) as response:
                 if response.status == 200:
                     data = await response.json()
 
-                    if "matches" in data:
+                    if data.get("threats"):
                         return False
                 else:
                     logger.error(f"Google Safe Browsing API 回應錯誤：{response.status}")

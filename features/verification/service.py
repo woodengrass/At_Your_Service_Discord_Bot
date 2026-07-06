@@ -138,18 +138,24 @@ async def _rollback_lockdown(
 
 
 async def lockdown_and_grandfather(
-    guild: discord.Guild, restricted_role: discord.Role, verified_role: discord.Role
+    guild: discord.Guild,
+    restricted_role: discord.Role,
+    verified_role: discord.Role,
+    honeypot_channel_id: int | None = None,
 ) -> dict[str, int | bool]:
     """
     啟用驗證系統時執行的一次性批次操作：
     1. 把已驗證身分組發給目前所有現有成員（機器人排除）
-    2. 把所有「原本 @everyone 就看得到、且非公告頻道」的文字頻道設定為 @everyone 無法發言，只有已驗證身分組能發言
-       （本來就對 @everyone 隱藏的頻道、公告頻道、以及所有語音頻道都會被略過，不受此操作影響）
+    2. 把所有「原本 @everyone 就看得到、且非公告頻道、非蜜罐頻道」的文字頻道設定為 @everyone 無法發言，
+       只有已驗證身分組能發言
+       （本來就對 @everyone 隱藏的頻道、公告頻道、蜜罐頻道、以及所有語音頻道都會被略過，不受此操作影響；
+       蜜罐頻道必須維持 @everyone 可發言，否則違規者無法在裡面留言觸發偵測，蜜罐功能會失效）
 
     Args:
         guild: 伺服器物件
         restricted_role: 待驗證身分組
         verified_role: 已驗證身分組
+        honeypot_channel_id: 蜜罐頻道 ID；尚未設定蜜罐功能時為 None
 
     Returns:
         包含成功狀態、完成數量、失敗數量與回復失敗數量的結果
@@ -157,7 +163,9 @@ async def lockdown_and_grandfather(
     bot_member = guild.me
     lockable_channels = [
         channel for channel in guild.text_channels
-        if not _is_hidden_from_everyone(channel) and not _is_announcement_channel(channel)
+        if not _is_hidden_from_everyone(channel)
+        and not _is_announcement_channel(channel)
+        and channel.id != honeypot_channel_id
     ]
     preflight_failed = (
         bot_member is None

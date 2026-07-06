@@ -1,0 +1,1956 @@
+{
+  "commands": {
+    "server_setting": {
+      "description": {
+        "zh-TW": "開啟一般伺服器設定面板 (語言、人數統計、日誌)",
+        "zh-CN": "开启一般服务器设置面板 (语言、人数统计、日志)",
+        "en-US": "Open general server settings panel"
+      }
+    },
+    "anti_fraud_setting": {
+      "description": {
+        "zh-TW": "開啟防護與白名單設定面板",
+        "zh-CN": "开启防护与白名单设置面板",
+        "en-US": "Open security and whitelist settings panel"
+      }
+    },
+    "trigger_setting": {
+      "description": {
+        "zh-TW": "開啟自動回覆觸發詞管理面板",
+        "zh-CN": "开启自动回复触发词管理面板",
+        "en-US": "Open auto-reply triggers management panel"
+      }
+    },
+    "set_language": {
+      "description": {
+        "zh-TW": "切換機器人在此伺服器的語言",
+        "zh-CN": "切换机器人在此服务器的语言",
+        "en-US": "Switch bot language for this server"
+      }
+    },
+    "set_announcement": {
+      "description": {
+        "zh-TW": "將當前頻道設為公告頻道",
+        "zh-CN": "将当前频道设为公告频道",
+        "en-US": "Set current channel as announcement channel"
+      }
+    },
+    "add_whitelist": {
+      "description": {
+        "zh-TW": "添加某人到白名單",
+        "zh-CN": "添加某人到白名单",
+        "en-US": "Add user to whitelist"
+      }
+    },
+    "remove_whitelist": {
+      "description": {
+        "zh-TW": "將某人移出白名單",
+        "zh-CN": "将某人移出白名单",
+        "en-US": "Remove user from whitelist"
+      }
+    },
+    "view_config": {
+      "description": {
+        "zh-TW": "查看當前伺服器配置",
+        "zh-CN": "查看当前服务器配置",
+        "en-US": "View current server configuration"
+      }
+    },
+    "set_welcome": {
+      "description": {
+        "zh-TW": "設定歡迎訊息",
+        "zh-CN": "设定欢迎消息",
+        "en-US": "Set welcome message"
+      }
+    },
+    "delete": {
+      "description": {
+        "zh-TW": "刪除最近的訊息",
+        "zh-CN": "删除最近的消息",
+        "en-US": "Delete recent messages"
+      }
+    },
+    "ticket": {
+      "description": {
+        "zh-TW": "建立客服單按鈕",
+        "zh-CN": "建立客服单按钮",
+        "en-US": "Create ticket panel button"
+      }
+    },
+    "toggle_delete_log": {
+      "description": {
+        "zh-TW": "開啟或關閉刪除訊息的通報功能",
+        "zh-CN": "开启或关闭删除消息的通报功能",
+        "en-US": "Toggle delete message logging"
+      }
+    },
+    "announcement": {
+      "description": {
+        "zh-TW": "讓機器人在指定頻道發送公告訊息",
+        "zh-CN": "让机器人在指定频道发送公告消息",
+        "en-US": "Make the bot send an announcement"
+      }
+    },
+    "export_chat": {
+      "description": {
+        "zh-TW": "獲取指定時間內的頻道聊天紀錄",
+        "zh-CN": "获取指定时间内的频道聊天记录",
+        "en-US": "Export chat history"
+      }
+    },
+    "custom_panel": {
+      "description": {
+        "zh-TW": "開啟多功能自訂面板編輯器",
+        "zh-CN": "开启多功能自订面板编辑器",
+        "en-US": "Open Custom Panel Editor"
+      }
+    }
+  },
+  "labels": {
+    "log_channel_id": {
+      "zh-TW": " 公告頻道",
+      "zh-CN": " 公告频道",
+      "en-US": "Announcement Channel"
+    },
+    "language": {
+      "zh-TW": " 語言",
+      "zh-CN": " 语言",
+      "en-US": "Language"
+    },
+    "honeypot": {
+      "zh-TW": " 蜜罐系統",
+      "zh-CN": " 蜜罐系统",
+      "en-US": "Honeypot System"
+    },
+    "people_counting": {
+      "zh-TW": " 人數統計",
+      "zh-CN": " 人数统计",
+      "en-US": "Member Counting"
+    },
+    "welcome": {
+      "zh-TW": " 歡迎訊息",
+      "zh-CN": " 欢迎消息",
+      "en-US": "Welcome Message"
+    },
+    "delete_log": {
+      "zh-TW": " 刪除日誌",
+      "zh-CN": " 删除日志",
+      "en-US": "Delete Log"
+    },
+    "whitelist": {
+      "zh-TW": " 白名單",
+      "zh-CN": " 白名单",
+      "en-US": "Whitelist"
+    },
+    "anti_spam": {
+      "zh-TW": " 防洗版系統",
+      "zh-CN": " 防刷屏系统",
+      "en-US": "Anti-Spam System"
+    },
+    "target_role": {
+      "zh-TW": " 申請身分組",
+      "zh-CN": " 申请身份组",
+      "en-US": " Target Role"
+    },
+    "unknown_role": {
+      "zh-TW": " 未知身分組",
+      "zh-CN": " 未知身份组",
+      "en-US": " Unknown Role"
+    },
+    "status": {
+      "zh-TW": "狀態",
+      "zh-CN": "状态",
+      "en-US": "Status"
+    },
+    "send_channel": {
+      "zh-TW": "當前發送頻道",
+      "zh-CN": "当前发送频道",
+      "en-US": "Current Channel"
+    },
+    "avatar_status": {
+      "zh-TW": "頭像顯示狀態",
+      "zh-CN": "头像显示状态",
+      "en-US": "Avatar Status"
+    },
+    "wildcard_tag": {
+      "zh-TW": " [萬用字元]",
+      "zh-CN": " [万用字元]",
+      "en-US": " [Wildcard]"
+    },
+    "untitled": {
+      "zh-TW": "無標題",
+      "zh-CN": "无标题",
+      "en-US": "Untitled"
+    },
+    "warning_active": {
+      "zh-TW": " 啟用中",
+      "zh-CN": " 启用中",
+      "en-US": " Active"
+    },
+    "warning_paused": {
+      "zh-TW": " 已暫停",
+      "zh-CN": " 已暂停",
+      "en-US": " Paused"
+    },
+    "none_value": {
+      "zh-TW": "無",
+      "zh-CN": "无",
+      "en-US": "None"
+    },
+    "freq_daily": {
+      "zh-TW": "每天",
+      "zh-CN": "每天",
+      "en-US": "Daily"
+    },
+    "freq_weekly": {
+      "zh-TW": "每週",
+      "zh-CN": "每周",
+      "en-US": "Weekly"
+    },
+    "freq_monthly": {
+      "zh-TW": "每月",
+      "zh-CN": "每月",
+      "en-US": "Monthly"
+    },
+    "freq_unknown": {
+      "zh-TW": "未知",
+      "zh-CN": "未知",
+      "en-US": "Unknown"
+    },
+    "random_response_count": {
+      "zh-TW": "[隨機 {count} 則]",
+      "zh-CN": "[随机 {count} 条]",
+      "en-US": "[{count} random responses]"
+    },
+    "identifier": {
+      "zh-TW": "ID：{identifier}",
+      "zh-CN": "ID：{identifier}",
+      "en-US": "ID: {identifier}"
+    },
+    "page_indicator": {
+      "zh-TW": "第 {current}/{total} 頁",
+      "zh-CN": "第 {current}/{total} 页",
+      "en-US": "Page {current}/{total}"
+    },
+    "language_zh_tw": {
+      "zh-TW": "繁體中文",
+      "zh-CN": "繁體中文",
+      "en-US": "Traditional Chinese"
+    },
+    "language_zh_cn": {
+      "zh-TW": "簡體中文",
+      "zh-CN": "简体中文",
+      "en-US": "Simplified Chinese"
+    },
+    "language_en_us": {
+      "zh-TW": "英文",
+      "zh-CN": "英文",
+      "en-US": "English"
+    }
+  },
+  "ui": {
+    "placeholder": {
+      "zh-TW": " 請選擇要執行的操作...",
+      "zh-CN": " 请选择要执行的操作...",
+      "en-US": " Select an action..."
+    },
+    "opt_view_config": {
+      "zh-TW": "顯示當前系統設置",
+      "zh-CN": "显示当前系统设置",
+      "en-US": "View Configuration"
+    },
+    "opt_desc_config": {
+      "zh-TW": "查看蜜罐、頻道與語言設定",
+      "zh-CN": "查看蜜罐、频道与语言设定",
+      "en-US": "Check honeypot, channels and language"
+    },
+    "opt_view_whitelist": {
+      "zh-TW": "查看白名單列表",
+      "zh-CN": "查看白名单列表",
+      "en-US": "View Whitelist"
+    },
+    "opt_add_whitelist": {
+      "zh-TW": "新增白名單成員",
+      "zh-CN": "新增白名单成员",
+      "en-US": "Add to Whitelist"
+    },
+    "opt_remove_whitelist": {
+      "zh-TW": "移除白名單成員",
+      "zh-CN": "移除白名单成员",
+      "en-US": "Remove from Whitelist"
+    },
+    "select_user_add": {
+      "zh-TW": "請選擇要加入白名單的成員",
+      "zh-CN": "请选择要加入白名单的成员",
+      "en-US": "Select user to add"
+    },
+    "select_user_remove": {
+      "zh-TW": "請選擇要移出的成員",
+      "zh-CN": "请选择要移出的成员",
+      "en-US": "Select user to remove"
+    },
+    "opt_set_people_count": {
+      "zh-TW": "設定人數統計頻道",
+      "zh-CN": "设定人数统计频道",
+      "en-US": "Set People Count Channel"
+    },
+    "select_channel_count": {
+      "zh-TW": "請選擇要用來顯示人數的頻道",
+      "zh-CN": "请选择要用来显示人数的频道",
+      "en-US": "Select channel for member count"
+    },
+    "opt_toggle_delete_log": {
+      "zh-TW": "切換刪除日誌功能",
+      "zh-CN": "切换删除日志功能",
+      "en-US": "Toggle Delete Log"
+    },
+    "msg_select_delete_log": {
+      "zh-TW": "請選擇是否啟用「刪除訊息紀錄」功能",
+      "zh-CN": "请选择是否启用「删除消息记录」功能",
+      "en-US": "Enable or disable delete message logging?"
+    },
+    "opt_set_language": {
+      "zh-TW": "設定機器人語言",
+      "zh-CN": "设定机器人语言",
+      "en-US": "Set Bot Language"
+    },
+    "select_language": {
+      "zh-TW": "請選擇語言",
+      "zh-CN": "请选择语言",
+      "en-US": "Select Language"
+    },
+    "opt_set_announcement": {
+      "zh-TW": "設定公告頻道",
+      "zh-CN": "设定公告频道",
+      "en-US": "Set Announcement Channel"
+    },
+    "select_announcement_channel": {
+      "zh-TW": "請選擇要設為公告的頻道",
+      "zh-CN": "请选择要设为公告的频道",
+      "en-US": "Select Announcement Channel"
+    },
+    "opt_anti_fraud_setting": {
+      "zh-TW": "反詐騙系統設定",
+      "zh-CN": "反诈骗系统设定",
+      "en-US": "Anti-Fraud Settings"
+    },
+    "opt_set_honeypot": {
+      "zh-TW": "設定蜜罐頻道",
+      "zh-CN": "设定蜜罐频道",
+      "en-US": "Set Honeypot Channel"
+    },
+    "opt_view_banned_texts": {
+      "zh-TW": "查看封禁訊息紀錄",
+      "zh-CN": "查看封禁消息纪录",
+      "en-US": "View Banned Texts"
+    },
+    "select_honeypot_channel": {
+      "zh-TW": "請選擇要設為蜜罐的頻道",
+      "zh-CN": "请选择要设为蜜罐的频道",
+      "en-US": "Select Honeypot Channel"
+    },
+    "opt_toggle_anti_spam": {
+      "zh-TW": "切換防洗版偵測",
+      "zh-CN": "切换防刷屏侦测",
+      "en-US": "Toggle Anti-Spam"
+    },
+    "modal_trigger_title": {
+      "zh-TW": "新增自動回覆",
+      "zh-CN": "新增自动回复",
+      "en-US": "Add Auto-Reply"
+    },
+    "input_trigger": {
+      "zh-TW": "觸發詞",
+      "zh-CN": "触发词",
+      "en-US": "Trigger Word"
+    },
+    "input_response": {
+      "zh-TW": "回覆內容",
+      "zh-CN": "回复内容",
+      "en-US": "Response Content"
+    },
+    "input_wildcard": {
+      "zh-TW": "是否開啟萬用字元? (y/n)",
+      "zh-CN": "是否开启万用字元? (y/n)",
+      "en-US": "Wildcard? (y/n)"
+    },
+    "placeholder_trigger_word": {
+      "zh-TW": "例如：hello",
+      "zh-CN": "例如：hello",
+      "en-US": "e.g. hello"
+    },
+    "placeholder_trigger_response": {
+      "zh-TW": "可用變數: [user], [server], [channel]\n範例: 歡迎 [user] 加入 [server] !",
+      "zh-CN": "可用变数: [user], [server], [channel]\n范例: 欢迎 [user] 加入 [server] !",
+      "en-US": "Available variables: [user], [server], [channel]\nExample: Welcome [user] to [server]!"
+    },
+    "placeholder_trigger_wildcard": {
+      "zh-TW": "y/n（預設：n）",
+      "zh-CN": "y/n（预设：n）",
+      "en-US": "y/n (Default: n)"
+    },
+    "select_trigger_delete": {
+      "zh-TW": "請選擇要刪除的觸發詞",
+      "zh-CN": "请选择要删除的触发词",
+      "en-US": "Select trigger to delete"
+    },
+    "btn_add_trigger": {
+      "zh-TW": "新增觸發詞",
+      "zh-CN": "新增触发词",
+      "en-US": "Add Trigger"
+    },
+    "btn_del_trigger": {
+      "zh-TW": "刪除觸發詞",
+      "zh-CN": "删除触发词",
+      "en-US": "Delete Trigger"
+    },
+    "btn_view_trigger": {
+      "zh-TW": "查看列表",
+      "zh-CN": "查看列表",
+      "en-US": "View List"
+    },
+    "btn_no_trigger_delete": {
+      "zh-TW": "沒有可刪除的觸發詞",
+      "zh-CN": "没有可删除的触发词",
+      "en-US": "No triggers to delete"
+    },
+    "modal_input_title": {
+      "zh-TW": " 填寫資訊",
+      "zh-CN": " 填写信息",
+      "en-US": " Fill Information"
+    },
+    "btn_approve": {
+      "zh-TW": "通過",
+      "zh-CN": "通过",
+      "en-US": "Approve"
+    },
+    "btn_deny": {
+      "zh-TW": "拒絕",
+      "zh-CN": "拒绝",
+      "en-US": "Deny"
+    },
+    "panel_editor_title": {
+      "zh-TW": " 面板編輯器",
+      "zh-CN": " 面板编辑器",
+      "en-US": " Panel Editor"
+    },
+    "btn_edit_embed": {
+      "zh-TW": " 編輯內容",
+      "zh-CN": " 编辑内容",
+      "en-US": " Edit Content"
+    },
+    "btn_add_button": {
+      "zh-TW": " 新增按鈕",
+      "zh-CN": " 新增按钮",
+      "en-US": " Add Button"
+    },
+    "btn_publish": {
+      "zh-TW": " 發布面板",
+      "zh-CN": " 发布面板",
+      "en-US": " Publish"
+    },
+    "btn_cancel": {
+      "zh-TW": " 取消",
+      "zh-CN": " 取消",
+      "en-US": " Cancel"
+    },
+    "btn_next": {
+      "zh-TW": " 下一步",
+      "zh-CN": " 下一步",
+      "en-US": " Next"
+    },
+    "btn_cancel_back": {
+      "zh-TW": " 取消 / 返回",
+      "zh-CN": " 取消 / 返回",
+      "en-US": " Cancel / Back"
+    },
+    "btn_back": {
+      "zh-TW": "返回",
+      "zh-CN": "返回",
+      "en-US": "Back"
+    },
+    "btn_previous_page": {
+      "zh-TW": "上一頁",
+      "zh-CN": "上一页",
+      "en-US": "Previous"
+    },
+    "btn_next_page": {
+      "zh-TW": "下一頁",
+      "zh-CN": "下一页",
+      "en-US": "Next"
+    },
+    "btn_confirm": {
+      "zh-TW": "確認啟用",
+      "zh-CN": "确认启用",
+      "en-US": "Confirm Enable"
+    },
+    "verification_placeholder": {
+      "zh-TW": "請選擇要設定的項目",
+      "zh-CN": "请选择要设定的项目",
+      "en-US": "Select a setting"
+    },
+    "verification_toggle": {
+      "zh-TW": "切換啟用狀態",
+      "zh-CN": "切换启用状态",
+      "en-US": "Toggle enabled state"
+    },
+    "verification_restricted_role": {
+      "zh-TW": "設定待驗證身分組",
+      "zh-CN": "设定待验证身份组",
+      "en-US": "Set restricted role"
+    },
+    "verification_verified_role": {
+      "zh-TW": "設定已驗證身分組",
+      "zh-CN": "设定已验证身份组",
+      "en-US": "Set verified role"
+    },
+    "verification_review_role": {
+      "zh-TW": "設定審核人員身分組（選填）",
+      "zh-CN": "设定审核人员身份组（选填）",
+      "en-US": "Set review staff role (optional)"
+    },
+    "verification_channel": {
+      "zh-TW": "設定驗證頻道",
+      "zh-CN": "设定验证频道",
+      "en-US": "Set verification channel"
+    },
+    "verification_publish": {
+      "zh-TW": "發布驗證面板",
+      "zh-CN": "发布验证面板",
+      "en-US": "Publish verification panel"
+    },
+    "verification_select_restricted_role": {
+      "zh-TW": "選擇待驗證身分組",
+      "zh-CN": "选择待验证身份组",
+      "en-US": "Select restricted role"
+    },
+    "verification_select_verified_role": {
+      "zh-TW": "選擇已驗證身分組",
+      "zh-CN": "选择已验证身份组",
+      "en-US": "Select verified role"
+    },
+    "verification_select_review_role": {
+      "zh-TW": "選擇審核人員身分組",
+      "zh-CN": "选择审核人员身份组",
+      "en-US": "Select review staff role"
+    },
+    "verification_select_channel": {
+      "zh-TW": "選擇驗證頻道",
+      "zh-CN": "选择验证频道",
+      "en-US": "Select verification channel"
+    },
+    "modal_button_config_title": {
+      "zh-TW": "按鈕設定",
+      "zh-CN": "按钮设定",
+      "en-US": "Button Config"
+    },
+    "modal_edit_content_title": {
+      "zh-TW": "編輯內容",
+      "zh-CN": "编辑内容",
+      "en-US": "Edit Content"
+    },
+    "placeholder_btn_style": {
+      "zh-TW": "blue/gray/green/red",
+      "zh-CN": "blue/gray/green/red",
+      "en-US": "blue/gray/green/red"
+    },
+    "placeholder_form_title": {
+      "zh-TW": "表單標題",
+      "zh-CN": "表单标题",
+      "en-US": "Form Title"
+    },
+    "placeholder_input_hint": {
+      "zh-TW": "輸入提示",
+      "zh-CN": "输入提示",
+      "en-US": "Input Hint"
+    },
+    "placeholder_thumbnail_url": {
+      "zh-TW": "縮圖網址",
+      "zh-CN": "缩图网址",
+      "en-US": "Thumbnail URL"
+    },
+    "placeholder_freq_select": {
+      "zh-TW": "選擇排程頻率...",
+      "zh-CN": "选择排程频率...",
+      "en-US": "Select schedule frequency..."
+    },
+    "placeholder_warning_channel": {
+      "zh-TW": "選擇發送頻道...",
+      "zh-CN": "选择发送频道...",
+      "en-US": "Select the channel to send to..."
+    },
+    "placeholder_warning_role": {
+      "zh-TW": "選擇標註身分組 (可不選)...",
+      "zh-CN": "选择标注身份组 (可不选)...",
+      "en-US": "Select role to ping (optional)..."
+    },
+    "placeholder_time_hhmm": {
+      "zh-TW": "例如: 22:00",
+      "zh-CN": "例如: 22:00",
+      "en-US": "e.g. 22:00"
+    },
+    "placeholder_time_days": {
+      "zh-TW": "例如 1,3,5 (每週=1~7，每月=1~31)",
+      "zh-CN": "例如 1,3,5 (每周=1~7，每月=1~31)",
+      "en-US": "e.g. 1,3,5 (Weekly=1~7, Monthly=1~31)"
+    },
+    "select_btn_type": {
+      "zh-TW": "選擇按鈕功能類型",
+      "zh-CN": "选择按钮功能类型",
+      "en-US": "Select Button Type"
+    },
+    "opt_btn_role": {
+      "zh-TW": "1 領取身分組",
+      "zh-CN": "1 领取身份组",
+      "en-US": "1 Get Role"
+    },
+    "opt_btn_hidden": {
+      "zh-TW": "2 查看隱藏訊息",
+      "zh-CN": "2 查看隐藏消息",
+      "en-US": "2 Hidden Message"
+    },
+    "opt_btn_form": {
+      "zh-TW": "3 表單提交 (無審核)",
+      "zh-CN": "3 表单提交 (无审核)",
+      "en-US": "3 Form Submit"
+    },
+    "opt_btn_verify": {
+      "zh-TW": "4 申請審核 (需批准)",
+      "zh-CN": "4 申请审核 (需批准)",
+      "en-US": "4 Application Verify"
+    },
+    "select_role": {
+      "zh-TW": "選擇給予的身分組",
+      "zh-CN": "选择给予的身份组",
+      "en-US": "Select Role to Give"
+    },
+    "select_log_channel": {
+      "zh-TW": "選擇日誌/審核頻道",
+      "zh-CN": "选择日志/审核频道",
+      "en-US": "Select Log Channel"
+    },
+    "select_notify_channel": {
+      "zh-TW": "選擇結果通知頻道 (可選)",
+      "zh-CN": "选择结果通知频道 (可选)",
+      "en-US": "Select Notify Channel"
+    },
+    "select_publish_channel": {
+      "zh-TW": "請選擇要發布的頻道",
+      "zh-CN": "请选择要发布的频道",
+      "en-US": "Select Channel to Publish"
+    },
+    "input_embed_title": {
+      "zh-TW": "面板標題",
+      "zh-CN": "面板标题",
+      "en-US": "Panel Title"
+    },
+    "input_embed_desc": {
+      "zh-TW": "面板內文",
+      "zh-CN": "面板内文",
+      "en-US": "Panel Description"
+    },
+    "input_image_url": {
+      "zh-TW": "圖片網址 (可選)",
+      "zh-CN": "图片网址 (可选)",
+      "en-US": "Image URL (Optional)"
+    },
+    "input_btn_label": {
+      "zh-TW": "按鈕文字",
+      "zh-CN": "按钮文字",
+      "en-US": "Button Label"
+    },
+    "input_btn_style": {
+      "zh-TW": "顏色 (blue/gray/green/red)",
+      "zh-CN": "颜色 (blue/gray/green/red)",
+      "en-US": "Color (blue/gray/green/red)"
+    },
+    "input_modal_title": {
+      "zh-TW": "彈窗標題",
+      "zh-CN": "弹窗标题",
+      "en-US": "Modal Title"
+    },
+    "input_input_label": {
+      "zh-TW": "輸入框提示文字",
+      "zh-CN": "输入框提示文字",
+      "en-US": "Input Placeholder"
+    },
+    "input_hidden_content": {
+      "zh-TW": "隱藏的訊息內容",
+      "zh-CN": "隐藏的消息内容",
+      "en-US": "Hidden Content"
+    },
+    "opt_manage_whitelist": {
+      "zh-TW": "管理信任名單 (白名單)",
+      "zh-CN": "管理信任名单 (白名单)",
+      "en-US": "Manage Whitelist"
+    },
+    "desc_manage_whitelist": {
+      "zh-TW": "新增、移除或查看信任成員",
+      "zh-CN": "新增、移除或查看信任成员",
+      "en-US": "Add, remove, or view trusted members"
+    },
+    "placeholder_whitelist_menu": {
+      "zh-TW": "請選擇白名單操作...",
+      "zh-CN": "请选择白名单操作...",
+      "en-US": "Select whitelist action..."
+    },
+    "opt_back_main": {
+      "zh-TW": "返回主選單",
+      "zh-CN": "返回主菜单",
+      "en-US": "Back to Main Menu"
+    },
+    "desc_back_main": {
+      "zh-TW": "回到反詐騙設定",
+      "zh-CN": "回到反诈骗设定",
+      "en-US": "Return to Anti-Fraud Settings"
+    },
+    "opt_manage_honeypot": {
+      "zh-TW": "管理蜜罐系統 (Honeypot)",
+      "zh-CN": "管理蜜罐系统 (Honeypot)",
+      "en-US": "Manage Honeypot System"
+    },
+    "desc_manage_honeypot": {
+      "zh-TW": "設定頻道或查看攔截紀錄",
+      "zh-CN": "设定频道或查看拦截纪录",
+      "en-US": "Configure channel or view logs"
+    },
+    "placeholder_honeypot_menu": {
+      "zh-TW": "請選擇蜜罐操作...",
+      "zh-CN": "请选择蜜罐操作...",
+      "en-US": "Select honeypot action..."
+    },
+    "btn_spam_master": {
+      "zh-TW": "總開關",
+      "zh-CN": "总开关",
+      "en-US": "Master Switch"
+    },
+    "btn_spam_multi": {
+      "zh-TW": "跨頻道偵測",
+      "zh-CN": "跨频道检测",
+      "en-US": "Multi-Channel"
+    },
+    "btn_spam_single": {
+      "zh-TW": "同頻重複偵測",
+      "zh-CN": "同频重复检测",
+      "en-US": "Same-Channel"
+    },
+    "state_on": {
+      "zh-TW": "開啟",
+      "zh-CN": "开启",
+      "en-US": "ON"
+    },
+    "state_off": {
+      "zh-TW": "關閉",
+      "zh-CN": "关闭",
+      "en-US": "OFF"
+    },
+    "msg_spam_dashboard": {
+      "zh-TW": " **防洗版設定面板**\n請點擊下方按鈕切換各項偵測功能的開關狀態。",
+      "zh-CN": " **防刷屏设定面板**\n请点击下方按钮切换各项检测功能的开关状态。",
+      "en-US": " **Anti-Spam Dashboard**\nClick the buttons below to toggle detection modules."
+    },
+    "opt_link_checker": {
+      "zh-TW": "連結安全檢查",
+      "zh-CN": "链接安全检查",
+      "en-US": "Link Safety Check"
+    },
+    "desc_link_checker": {
+      "zh-TW": "自動偵測並標示連結安全性",
+      "zh-CN": "自动检测并标示链接安全性",
+      "en-US": "Auto-detect and flag link safety"
+    },
+    "msg_link_checker_dashboard": {
+      "zh-TW": " **連結檢查設定**\n開啟後，機器人將會對發送的連結進行初步掃描。\n安全連結：\n危險連結： + 警告訊息",
+      "zh-CN": " **链接检查设定**\n开启后，机器人将会对发送的链接进行初步扫描。\n安全链接：\n危险链接： + 警告信息",
+      "en-US": " **Link Checker Settings**\nWhen enabled, the bot will scan sent links.\nSafe: \nUnsafe:  + Warning"
+    },
+    "btn_link_checker_enable": {
+      "zh-TW": "啟用檢查",
+      "zh-CN": "启用检查",
+      "en-US": "Enable Checker"
+    },
+    "opt_anti_raid": {
+      "zh-TW": "防炸群偵測",
+      "zh-CN": "防炸群检测",
+      "en-US": "Anti-Raid Detection"
+    },
+    "desc_anti_raid": {
+      "zh-TW": "短時間大量成員加入時通知管理員",
+      "zh-CN": "短时间大量成员加入时通知管理员",
+      "en-US": "Notify admins on sudden join bursts"
+    },
+    "msg_anti_raid_dashboard": {
+      "zh-TW": " **防炸群設定**\n開啟後，短時間內有大量成員加入會自動通知管理員（僅警示，不會自動踢除或封鎖任何人）。",
+      "zh-CN": " **防炸群设定**\n开启后，短时间内有大量成员加入会自动通知管理员（仅警示，不会自动踢除或封锁任何人）。",
+      "en-US": " **Anti-Raid Settings**\nWhen enabled, admins are notified if too many members join in a short time (alert only, no automatic action)."
+    },
+    "btn_anti_raid_enable": {
+      "zh-TW": "啟用防炸群",
+      "zh-CN": "启用防炸群",
+      "en-US": "Enable Anti-Raid"
+    },
+    "opt_manage_verification": {
+      "zh-TW": "新成員驗證",
+      "zh-CN": "新成员验证",
+      "en-US": "Member Verification"
+    },
+    "desc_manage_verification": {
+      "zh-TW": "設定新成員加入驗證流程",
+      "zh-CN": "设定新成员加入验证流程",
+      "en-US": "Configure new member verification flow"
+    },
+    "btn_human_check": {
+      "zh-TW": " 我是人類",
+      "zh-CN": " 我是人类",
+      "en-US": " I'm Human"
+    },
+    "modal_welcome_title": {
+      "zh-TW": " 設定歡迎訊息",
+      "zh-CN": " 设定欢迎消息",
+      "en-US": " Set Welcome Message"
+    },
+    "input_welcome_title": {
+      "zh-TW": "標題 (Title) - 可留空",
+      "zh-CN": "标题 (Title) - 可留空",
+      "en-US": "Title (Optional)"
+    },
+    "placeholder_welcome_title": {
+      "zh-TW": "例如: 歡迎加入 [server]",
+      "zh-CN": "例如: 欢迎加入 [server]",
+      "en-US": "e.g., Welcome to [server]"
+    },
+    "input_welcome_desc": {
+      "zh-TW": "內文 (支援 [user], [username], [people])",
+      "zh-CN": "内文 (支持 [user], [username], [people])",
+      "en-US": "Message (Tags: [user], [username], [people])"
+    },
+    "placeholder_welcome_desc": {
+      "zh-TW": "例如: 歡迎 [user]！你是第 [people] 位成員。",
+      "zh-CN": "例如: 欢迎 [user]！你是第 [people] 位成员。",
+      "en-US": "e.g., Welcome [user]! You are member #[people]."
+    },
+    "input_welcome_footer": {
+      "zh-TW": "底部文字 (Footer) - 可留空",
+      "zh-CN": "底部文字 (Footer) - 可留空",
+      "en-US": "Footer (Optional)"
+    },
+    "placeholder_welcome_footer": {
+      "zh-TW": "例如: 祝你有美好的一天！",
+      "zh-CN": "例如: 祝你有美好的一天！",
+      "en-US": "e.g., Have a great day!"
+    },
+    "opt_set_welcome_channel": {
+      "zh-TW": "設定發送頻道",
+      "zh-CN": "设定发送频道",
+      "en-US": "Set Channel"
+    },
+    "opt_toggle_welcome_avatar": {
+      "zh-TW": "切換頭像顯示",
+      "zh-CN": "切换头像显示",
+      "en-US": "Toggle Avatar"
+    },
+    "opt_edit_welcome_msg": {
+      "zh-TW": "編輯訊息內容",
+      "zh-CN": "编辑消息内容",
+      "en-US": "Edit Content"
+    },
+    "welcome_panel_placeholder": {
+      "zh-TW": "請選擇要修改的歡迎設定...",
+      "zh-CN": "请选择要修改的欢迎设定...",
+      "en-US": "Select setting to modify..."
+    },
+    "msg_select_welcome_channel": {
+      "zh-TW": "選擇要在哪裡發送歡迎訊息",
+      "zh-CN": "选择要在哪里发送欢迎讯息",
+      "en-US": "Choose where to send the welcome message"
+    },
+    "select_welcome_channel": {
+      "zh-TW": "選擇歡迎訊息發送頻道",
+      "zh-CN": "选择欢迎讯息发送频道",
+      "en-US": "Select the welcome message sending channel"
+    },
+    "opt_add_warning": {
+      "zh-TW": " 新增提醒",
+      "zh-CN": " 新增提醒",
+      "en-US": " Add Warning"
+    },
+    "opt_edit_warning": {
+      "zh-TW": " 編輯提醒",
+      "zh-CN": " 编辑提醒",
+      "en-US": " Edit Warning"
+    },
+    "opt_delete_warning": {
+      "zh-TW": " 刪除提醒",
+      "zh-CN": " 删除提醒",
+      "en-US": " Delete Warning"
+    },
+    "opt_toggle_warning": {
+      "zh-TW": " 切換啟用/暫停",
+      "zh-CN": " 切换启用/暂停",
+      "en-US": " Toggle Status"
+    },
+    "placeholder_warning_action": {
+      "zh-TW": " 請選擇要執行的操作...",
+      "zh-CN": " 请选择要执行的操作...",
+      "en-US": " Select an action..."
+    },
+    "placeholder_select_warning": {
+      "zh-TW": " 請選擇一個現有的提醒...",
+      "zh-CN": " 请选择一个现有的提醒...",
+      "en-US": " Select an existing warning..."
+    },
+    "modal_warning_content_title": {
+      "zh-TW": " 步驟 1/3：內容設定",
+      "zh-CN": " 步骤 1/3：内容设定",
+      "en-US": " Step 1/3: Content"
+    },
+    "input_warning_title": {
+      "zh-TW": "標題",
+      "zh-CN": "标题",
+      "en-US": "Title"
+    },
+    "input_warning_desc": {
+      "zh-TW": "內文 (必填，支援 MD 語法)",
+      "zh-CN": "内文 (必填，支持 MD 语法)",
+      "en-US": "Description (Required)"
+    },
+    "input_warning_footer": {
+      "zh-TW": "底部文字",
+      "zh-CN": "底部文字",
+      "en-US": "Footer"
+    },
+    "input_warning_thumb": {
+      "zh-TW": "側面小圖 URL (可選)",
+      "zh-CN": "侧面小图 URL (可选)",
+      "en-US": "Thumbnail URL (Optional)"
+    },
+    "input_warning_image": {
+      "zh-TW": "下方大圖 URL (可選)",
+      "zh-CN": "下方大图 URL (可选)",
+      "en-US": "Image URL (Optional)"
+    },
+    "msg_warning_target": {
+      "zh-TW": " **步驟 2/3：目標設定**\n請選擇發送頻道與要標註 (Ping) 的身分組。\n*(設定完成後點擊「下一步」)*",
+      "zh-CN": " **步骤 2/3：目标设定**\n请选择发送频道与要标注 (Ping) 的身份组。\n*(设定完成后点击「下一步」)*",
+      "en-US": " **Step 2/3: Target Settings**\nSelect channel and role to ping."
+    },
+    "btn_next_step": {
+      "zh-TW": " 下一步 (設定時間)",
+      "zh-CN": " 下一步 (设定时间)",
+      "en-US": " Next Step (Time)"
+    },
+    "msg_warning_schedule": {
+      "zh-TW": " **步驟 3/3：排程設定**\n請先從下拉選單選擇提醒的**頻率** (每天/每週/每月)。",
+      "zh-CN": " **步骤 3/3：排程设定**\n请先从下拉菜单选择提醒的**频率** (每天/每周/每月)。",
+      "en-US": " **Step 3/3: Schedule**\nSelect the frequency first."
+    },
+    "opt_freq_daily": {
+      "zh-TW": " 每天",
+      "zh-CN": " 每天",
+      "en-US": " Daily"
+    },
+    "opt_freq_weekly": {
+      "zh-TW": " 每週",
+      "zh-CN": " 每周",
+      "en-US": " Weekly"
+    },
+    "opt_freq_monthly": {
+      "zh-TW": " 每月",
+      "zh-CN": " 每月",
+      "en-US": " Monthly"
+    },
+    "modal_time_title": {
+      "zh-TW": " 設定具體時間",
+      "zh-CN": " 设定具体时间",
+      "en-US": " Set Specific Time"
+    },
+    "input_time_hhmm": {
+      "zh-TW": "時間 (24小時制 HH:MM)",
+      "zh-CN": "时间 (24小时制 HH:MM)",
+      "en-US": "Time (24h HH:MM)"
+    },
+    "input_time_days": {
+      "zh-TW": "日期 (依據頻率輸入數字，用逗號分隔)",
+      "zh-CN": "日期 (依据频率输入数字，用逗号分隔)",
+      "en-US": "Days (Comma separated)"
+    }
+  },
+  "messages": {
+    "status_enabled": {
+      "zh-TW": "啟用",
+      "zh-CN": "启用",
+      "en-US": "Enabled"
+    },
+    "status_disabled": {
+      "zh-TW": "關閉",
+      "zh-CN": "关闭",
+      "en-US": "Disabled"
+    },
+    "toggle_log": {
+      "zh-TW": " 刪除訊息通報已 {status}",
+      "zh-CN": " 删除消息通报已 {status}",
+      "en-US": " Delete logging is now {status}."
+    },
+    "toggle_anti_spam": {
+      "zh-TW": " 防洗版偵測功能已 {status}",
+      "zh-CN": " 防刷屏侦测功能已 {status}",
+      "en-US": " Anti-Spam protection is now {status}."
+    },
+    "lang_set": {
+      "zh-TW": " 語言已切換為：繁體中文",
+      "zh-CN": " 语言已切换为：简体中文",
+      "en-US": " Language set to: English"
+    },
+    "success_honeypot": {
+      "zh-TW": " 已將蜜罐頻道設定為 {channel}",
+      "zh-CN": " 已将蜜罐频道设定为 {channel}",
+      "en-US": " Honeypot channel set to {channel}."
+    },
+    "title_whitelist_add_result": {
+      "zh-TW": " 新增結果",
+      "zh-CN": " 新增结果",
+      "en-US": " Add Result"
+    },
+    "title_whitelist_remove_result": {
+      "zh-TW": " 移除結果",
+      "zh-CN": " 移除结果",
+      "en-US": " Remove Result"
+    },
+    "label_user_left": {
+      "zh-TW": "已離開的成員（{user_id}）",
+      "zh-CN": "已离开的成员（{user_id}）",
+      "en-US": "Member Left ({user_id})"
+    },
+    "text_truncated": {
+      "zh-TW": "...（內容過長，已截斷）",
+      "zh-CN": "...（内容过长，已截断）",
+      "en-US": "...(Content too long, truncated)"
+    },
+    "panel_published": {
+      "zh-TW": " 面板已成功發布到 {channel}！",
+      "zh-CN": " 面板已成功发布到 {channel}！",
+      "en-US": " Panel published to {channel}!"
+    },
+    "configure_parameters_prompt": {
+      "zh-TW": " 設定參數：",
+      "zh-CN": " 设定参数：",
+      "en-US": " Configure Parameters:"
+    },
+    "default_panel_title": {
+      "zh-TW": "自訂面板",
+      "zh-CN": "自定义面板",
+      "en-US": "Custom Panel"
+    },
+    "default_panel_desc": {
+      "zh-TW": "說明文字...",
+      "zh-CN": "说明文字...",
+      "en-US": "Description..."
+    },
+    "select_button_type_prompt": {
+      "zh-TW": " 選擇按鈕類型：",
+      "zh-CN": " 选择按钮类型：",
+      "en-US": " Select Button Type:"
+    },
+    "error_max_buttons": {
+      "zh-TW": " 已達按鈕數量上限。",
+      "zh-CN": " 已达按钮数量上限。",
+      "en-US": " Max buttons reached."
+    },
+    "select_publish_channel_prompt": {
+      "zh-TW": " 選擇要發布的頻道：",
+      "zh-CN": " 选择要发布的频道：",
+      "en-US": " Select Channel to Publish:"
+    },
+    "error_wip_not_found": {
+      "zh-TW": " 發生錯誤：找不到暫存資料",
+      "zh-CN": " 发生错误：找不到暂存资料",
+      "en-US": " Error: Temporary data not found."
+    },
+    "error_invalid_days_format": {
+      "zh-TW": " 格式錯誤：日期必須是數字並用逗號分隔",
+      "zh-CN": " 格式错误：日期必须是数字并用逗号分隔",
+      "en-US": " Format error: Days must be numbers separated by commas."
+    },
+    "error_channel_required": {
+      "zh-TW": " 請至少選擇一個發送頻道！",
+      "zh-CN": " 请至少选择一个发送频道！",
+      "en-US": " Please select at least one channel!"
+    },
+    "error_no_warnings": {
+      "zh-TW": " 伺服器目前沒有任何排程，無法執行此操作！",
+      "zh-CN": " 服务器目前没有任何排程，无法执行此操作！",
+      "en-US": " This server has no schedules yet, cannot perform this action!"
+    },
+    "select_target_prompt": {
+      "zh-TW": " 請選擇目標項目：",
+      "zh-CN": " 请选择目标项目：",
+      "en-US": " Please select a target:"
+    },
+    "warning_list_header": {
+      "zh-TW": "── 當前已設定的提醒列表 ({count}) ──",
+      "zh-CN": "── 当前已设定的提醒列表 ({count}) ──",
+      "en-US": "── Current Scheduled Reminders ({count}) ──"
+    },
+    "success_announcement": {
+      "zh-TW": " 當前頻道已設為公告頻道",
+      "zh-CN": " 当前频道已设为公告频道",
+      "en-US": " Current channel set as Announcement channel."
+    },
+    "error_channel_not_found": {
+      "zh-TW": " 錯誤：找不到頻道。",
+      "zh-CN": " 错误：找不到频道。",
+      "en-US": " Error: Channel not found."
+    },
+    "title_setting_success": {
+      "zh-TW": " 設定成功",
+      "zh-CN": " 设定成功",
+      "en-US": " Setting Saved"
+    },
+    "error_setting_failed": {
+      "zh-TW": "設定失敗，請稍後再試。",
+      "zh-CN": "设定失败，请稍后再试。",
+      "en-US": "The setting could not be saved. Please try again later."
+    },
+    "title_language_updated": {
+      "zh-TW": " 語言已更新",
+      "zh-CN": " 语言已更新",
+      "en-US": " Language Updated"
+    },
+    "value_not_set": {
+      "zh-TW": "尚未設定",
+      "zh-CN": "尚未设定",
+      "en-US": "Not set"
+    },
+    "channel_not_set": {
+      "zh-TW": " 未設定",
+      "zh-CN": " 未设定",
+      "en-US": " Not set"
+    },
+    "error_no_config": {
+      "zh-TW": " 請先設定蜜罐和公告頻道",
+      "zh-CN": " 请先设定蜜罐和公告频道",
+      "en-US": " Please configure Honeypot and Announcement channels first."
+    },
+    "whitelist_added": {
+      "zh-TW": " 已將 {user} 添加到白名單",
+      "zh-CN": " 已将 {user} 添加到白名单",
+      "en-US": " Added {user} to whitelist."
+    },
+    "whitelist_exists": {
+      "zh-TW": "ℹ {user} 已在白名單中",
+      "zh-CN": "ℹ {user} 已在白名单中",
+      "en-US": "ℹ {user} is already in whitelist."
+    },
+    "config_not_found": {
+      "zh-TW": " 配置未找到",
+      "zh-CN": " 配置未找到",
+      "en-US": " Configuration not found."
+    },
+    "whitelist_removed": {
+      "zh-TW": " 已將 {user} 移出白名單",
+      "zh-CN": " 已将 {user} 移出白名单",
+      "en-US": " Removed {user} from whitelist."
+    },
+    "whitelist_not_in": {
+      "zh-TW": "ℹ {user} 不在白名單中",
+      "zh-CN": "ℹ {user} 不在白名单中",
+      "en-US": "ℹ {user} is not in whitelist."
+    },
+    "no_config_record": {
+      "zh-TW": " 當前伺服器沒有配置記錄",
+      "zh-CN": " 当前服务器没有配置记录",
+      "en-US": " No configuration record for this server."
+    },
+    "config_preview": {
+      "zh-TW": " **配置預覽**\n- 蜜罐頻道 ID: `{honeypot}`\n- 公告頻道 ID: `{announcement}`\n- 白名單: {whitelist}",
+      "zh-CN": " **配置预览**\n- 蜜罐频道 ID: `{honeypot}`\n- 公告频道 ID: `{announcement}`\n- 白名单: {whitelist}",
+      "en-US": " **Config Preview**\n- Honeypot ID: `{honeypot}`\n- Announcement ID: `{announcement}`\n- Whitelist: {whitelist}"
+    },
+    "no_module": {
+      "zh-TW": " 找不到 Honeypot 模組",
+      "zh-CN": " 找不到 Honeypot 模块",
+      "en-US": " Honeypot module not found."
+    },
+    "no_banned_text": {
+      "zh-TW": " 目前沒有任何蜜罐封禁訊息紀錄",
+      "zh-CN": " 目前没有任何蜜罐封禁消息纪录",
+      "en-US": " No banned message records found."
+    },
+    "banned_text_header": {
+      "zh-TW": "**所有封禁訊息:**\n{text}",
+      "zh-CN": "**所有封禁消息:**\n{text}",
+      "en-US": "**All Banned Texts:**\n{text}"
+    },
+    "set_count_success": {
+      "zh-TW": " 已將人數頻道設定為 {channel}，目前人數：{count}",
+      "zh-CN": " 已将人数频道设定为 {channel}，目前人数：{count}",
+      "en-US": " People count channel set to {channel}, current count: {count}"
+    },
+    "error_perm_channel_name": {
+      "zh-TW": " 權限不足，無法修改頻道名稱。",
+      "zh-CN": " 权限不足，无法修改频道名称。",
+      "en-US": " Permission denied: Cannot change channel name."
+    },
+    "error_unknown": {
+      "zh-TW": "處理時發生錯誤，請稍後再試。",
+      "zh-CN": "处理时发生错误，请稍后再试。",
+      "en-US": "An error occurred. Please try again later."
+    },
+    "set_welcome_success": {
+      "zh-TW": " 已設定此頻道為歡迎頻道並儲存訊息：\n{msg}",
+      "zh-CN": " 已设定此频道为欢迎频道并储存消息：\n{msg}",
+      "en-US": " Welcome channel set. Message saved:\n{msg}"
+    },
+    "error_perm_manage_msg": {
+      "zh-TW": " 你沒有刪除訊息的權限",
+      "zh-CN": " 你没有删除消息的权限",
+      "en-US": " You don't have permission to manage messages."
+    },
+    "error_invalid_count": {
+      "zh-TW": " 請輸入 1～100 之間的數字",
+      "zh-CN": " 请输入 1～100 之间的数字",
+      "en-US": " Please enter a number between 1 and 100."
+    },
+    "delete_success": {
+      "zh-TW": " 已刪除 {count} 則訊息",
+      "zh-CN": " 已删除 {count} 条消息",
+      "en-US": " Deleted {count} messages."
+    },
+    "delete_perm_error": {
+      "zh-TW": "機器人沒有刪除訊息的權限，請確認身分組權限設定。",
+      "zh-CN": "机器人没有删除消息的权限，请确认身份组权限设定。",
+      "en-US": "The bot doesn't have permission to delete messages. Please check the role permissions."
+    },
+    "delete_too_old_error": {
+      "zh-TW": "刪除失敗：Discord 只允許批量刪除 14 天內的訊息，請縮小刪除範圍或手動刪除較舊的訊息。",
+      "zh-CN": "删除失败：Discord 只允许批量删除 14 天内的消息，请缩小删除范围或手动删除较旧的消息。",
+      "en-US": "Delete failed: Discord only allows bulk-deleting messages younger than 14 days. Please narrow the range or delete older messages manually."
+    },
+    "trigger_added": {
+      "zh-TW": " 已新增觸發詞 `{trigger}`，回覆為 `{response}`，萬用字元：{wildcard}",
+      "zh-CN": " 已新增触发词 `{trigger}`，回复为 `{response}`，万用字符：{wildcard}",
+      "en-US": " Trigger added: `{trigger}`, Response: `{response}`, Wildcard: {wildcard}"
+    },
+    "trigger_not_found": {
+      "zh-TW": " 找不到觸發詞 `{trigger}`",
+      "zh-CN": " 找不到触发词 `{trigger}`",
+      "en-US": " Trigger `{trigger}` not found."
+    },
+    "trigger_deleted": {
+      "zh-TW": " 已成功刪除觸發詞 `{trigger}`",
+      "zh-CN": " 已成功删除触发词 `{trigger}`",
+      "en-US": " Successfully deleted trigger `{trigger}`."
+    },
+    "no_triggers": {
+      "zh-TW": " 此伺服器尚未設定任何觸發詞",
+      "zh-CN": " 此服务器尚未设定任何触发词",
+      "en-US": " No triggers set for this server."
+    },
+    "trigger_list": {
+      "zh-TW": " **目前的觸發詞清單：**\n{output}",
+      "zh-CN": " **目前的触发词清单：**\n{output}",
+      "en-US": " **Current Triggers:**\n{output}"
+    },
+    "announcement_sent": {
+      "zh-TW": " 已發送公告到 {channel}",
+      "zh-CN": " 已发送公告到 {channel}",
+      "en-US": " Announcement sent to {channel}."
+    },
+    "error_perm_send": {
+      "zh-TW": " 機器人沒有在該頻道發送訊息的權限",
+      "zh-CN": " 机器人没有在该频道发送消息的权限",
+      "en-US": " Bot lacks permission to send messages in that channel."
+    },
+    "export_start": {
+      "zh-TW": " 開始掃描過去 {hours} 小時的訊息，請稍候...",
+      "zh-CN": " 开始扫描过去 {hours} 小时的消息，请稍候...",
+      "en-US": " Scanning past {hours} hours of messages, please wait..."
+    },
+    "export_progress": {
+      "zh-TW": " 正在掃描... 已獲取 {count} 則訊息",
+      "zh-CN": " 正在扫描... 已获取 {count} 条消息",
+      "en-US": " Scanning... Retrieved {count} messages"
+    },
+    "custom_panel_default_button": {
+      "zh-TW": "按鈕",
+      "zh-CN": "按钮",
+      "en-US": "Button"
+    },
+    "export_attachment": {
+      "zh-TW": "[附件]",
+      "zh-CN": "[附件]",
+      "en-US": "[Attachment]"
+    },
+    "export_no_msg": {
+      "zh-TW": " 過去 {hours} 小時內沒有發現任何訊息。",
+      "zh-CN": " 过去 {hours} 小时内没有发现任何消息。",
+      "en-US": " No messages found in the past {hours} hours."
+    },
+    "export_done_public": {
+      "zh-TW": " **聊天紀錄導出完成！**\n 來源頻道：{channel}\n 訊息數量：{count} 則",
+      "zh-CN": " **聊天记录导出完成！**\n 来源频道：{channel}\n 消息数量：{count} 条",
+      "en-US": " **Export Complete!**\n Channel: {channel}\n Messages: {count}"
+    },
+    "export_done_private": {
+      "zh-TW": " 檔案已成功發送到頻道中！",
+      "zh-CN": " 档案已成功发送到频道中！",
+      "en-US": " File successfully sent to the channel!"
+    },
+    "export_perm_error": {
+      "zh-TW": " 權限不足：機器人無法在這個頻道發送公開訊息。",
+      "zh-CN": " 权限不足：机器人无法在这个频道发送公开消息。",
+      "en-US": " Permission Denied: Bot cannot send public messages here."
+    },
+    "honeypot_warning": {
+      "zh-TW": " **觸發蜜罐警告！**\n 使用者 {user} 發送了違規訊息\n 內容：`{content}`",
+      "zh-CN": " **触发蜜罐警告！**\n 用户 {user} 发送了违规信息\n 内容：`{content}`",
+      "en-US": " **Honeypot Triggered!**\n User {user} sent a restricted message.\n Content: `{content}`"
+    },
+    "raid_alert": {
+      "zh-TW": " **偵測到疑似炸群！**\n過去 {seconds} 秒內有 {count} 位成員加入，請管理員留意近期加入的成員。",
+      "zh-CN": " **侦测到疑似炸群！**\n过去 {seconds} 秒内有 {count} 位成员加入，请管理员留意近期加入的成员。",
+      "en-US": " **Possible raid detected!**\n{count} members joined in the last {seconds} seconds. Please review recent joins."
+    },
+    "ban_reason_honeypot": {
+      "zh-TW": "觸發蜜罐頻道違規",
+      "zh-CN": "触发蜜罐频道违规",
+      "en-US": "Triggered honeypot violation"
+    },
+    "verification_reason_pending": {
+      "zh-TW": "加入驗證系統：待驗證",
+      "zh-CN": "加入验证系统：待验证",
+      "en-US": "Joined verification system: pending"
+    },
+    "verification_reason_approved": {
+      "zh-TW": "驗證通過",
+      "zh-CN": "验证通过",
+      "en-US": "Verification approved"
+    },
+    "ban_reason_spam": {
+      "zh-TW": "非蜜罐頻道發送蜜罐訊息",
+      "zh-CN": "非蜜罐频道发送蜜罐消息",
+      "en-US": "Sent honeypot content in normal channel"
+    },
+    "delete_log": {
+      "zh-TW": " 使用者 {user} 在 {channel} 於 `{time}` 刪除了訊息：\n```\n{content}\n```",
+      "zh-CN": " 用户 {user} 在 {channel} 于 `{time}` 删除了消息：\n```\n{content}\n```",
+      "en-US": " User {user} deleted a message in {channel} at `{time}`:\n```\n{content}\n```"
+    },
+    "msg_empty": {
+      "zh-TW": "(訊息內容已空)",
+      "zh-CN": "(消息内容已空)",
+      "en-US": "(Content is empty)"
+    },
+    "msg_attachment_only": {
+      "zh-TW": "(使用者僅發送了圖片或檔案)",
+      "zh-CN": "(用户仅发送了图片或文件)",
+      "en-US": "(User only sent an image or file)"
+    },
+    "msg_sticker_only": {
+      "zh-TW": "(使用者發送了貼圖)",
+      "zh-CN": "(用户发送了贴图)",
+      "en-US": "(User sent a sticker)"
+    },
+    "welcome_title": {
+      "zh-TW": " 歡迎加入！",
+      "zh-CN": " 欢迎加入！",
+      "en-US": " Welcome!"
+    },
+    "welcome_desc": {
+      "zh-TW": "歡迎 {user} 加入 **{guild}**！\n{msg}\n\n你是第 **{count}** 個加入的成員！",
+      "zh-CN": "欢迎 {user} 加入 **{guild}**！\n{msg}\n\n你是第 **{count}** 个加入的成员！",
+      "en-US": "Welcome {user} to **{guild}**!\n{msg}\n\nYou are the **{count}**th member!"
+    },
+    "welcome_content": {
+      "zh-TW": "歡迎 {user} ",
+      "zh-CN": "欢迎 {user} ",
+      "en-US": "Welcome {user} "
+    },
+    "count_channel_name": {
+      "zh-TW": "人數-{count}",
+      "zh-CN": "人数-{count}",
+      "en-US": "Members-{count}"
+    },
+    "ticket_embed_title": {
+      "zh-TW": " 客服單系統",
+      "zh-CN": " 客服单系统",
+      "en-US": " Ticket System"
+    },
+    "ticket_panel_created": {
+      "zh-TW": " 客服面板已建立",
+      "zh-CN": " 客服面板已建立",
+      "en-US": " Ticket panel created"
+    },
+    "ticket_created_title": {
+      "zh-TW": "客服單已建立",
+      "zh-CN": "客服单已建立",
+      "en-US": "Ticket Created"
+    },
+    "ticket_created_desc": {
+      "zh-TW": "這是 {user} 開的單，理由：`{reason}`",
+      "zh-CN": "这是 {user} 开的单，理由：`{reason}`",
+      "en-US": "Ticket opened by {user}. Reason: `{reason}`"
+    },
+    "ticket_created_log": {
+      "zh-TW": " 已記錄新客服單面板位置：{channel}",
+      "zh-CN": " 已记录新客服单面板位置：{channel}",
+      "en-US": " Logged new ticket panel location: {channel}"
+    },
+    "ticket_closed": {
+      "zh-TW": " 已關閉客服單。",
+      "zh-CN": " 已关闭客服单。",
+      "en-US": " Ticket closed."
+    },
+    "ticket_deleting": {
+      "zh-TW": " 正在刪除客服單...",
+      "zh-CN": " 正在删除客服单...",
+      "en-US": " Deleting ticket..."
+    },
+    "ticket_transcript": {
+      "zh-TW": " 已輸出聊天紀錄如下：",
+      "zh-CN": " 已输出聊天记录如下：",
+      "en-US": " Chat transcript exported:"
+    },
+    "ticket_transcript_permission_denied": {
+      "zh-TW": "只有客服單建立者或管理員可以匯出聊天紀錄。",
+      "zh-CN": "只有客服单建立者或管理员可以导出聊天记录。",
+      "en-US": "Only the ticket owner or an administrator can export the transcript."
+    },
+    "ticket_transcript_empty": {
+      "zh-TW": "目前沒有可匯出的文字訊息。",
+      "zh-CN": "目前没有可导出的文字消息。",
+      "en-US": "There are no text messages to export."
+    },
+    "ticket_transcript_failed": {
+      "zh-TW": "匯出聊天紀錄失敗，請稍後再試。",
+      "zh-CN": "导出聊天记录失败，请稍后再试。",
+      "en-US": "Failed to export the transcript. Please try again later."
+    },
+    "ticket_created_msg": {
+      "zh-TW": " 已為你建立客服單：{channel}",
+      "zh-CN": " 已为你建立客服单：{channel}",
+      "en-US": " Ticket created: {channel}"
+    },
+    "ticket_admin_only_close": {
+      "zh-TW": " 權限不足：只有管理員可以關閉客服單。",
+      "zh-CN": " 权限不足：只有管理员可以关闭客服单。",
+      "en-US": " Permission denied: Only administrators can close tickets."
+    },
+    "ticket_admin_only_delete": {
+      "zh-TW": " 權限不足：只有管理員可以刪除客服單。",
+      "zh-CN": " 权限不足：只有管理员可以删除客服单。",
+      "en-US": " Permission denied: Only administrators can delete tickets."
+    },
+    "ticket_channel_create_failed": {
+      "zh-TW": "無法建立客服單頻道，請聯絡管理員。",
+      "zh-CN": "无法建立客服单频道，请联系管理员。",
+      "en-US": "The ticket channel could not be created. Please contact an administrator."
+    },
+    "spam_detected_log": {
+      "zh-TW": " **偵測到疑似詐騙！**\n 使用者 {user} 在短時間內於 **{count}** 個頻道發送相同內容，已執行禁言。\n 內容摘要：`{content}`",
+      "zh-CN": " **侦测到疑似诈骗！**\n 用户 {user} 在短时间内于 **{count}** 个频道发送相同内容，已执行禁言。\n 内容摘要：`{content}`",
+      "en-US": " **Spam Detected!**\n User {user} sent the same message in **{count}** channels quickly and has been timed out.\n Content: `{content}`"
+    },
+    "spam_timeout_reason": {
+      "zh-TW": "系統自動偵測：跨頻道洗版 (Anti-Spam)",
+      "zh-CN": "系统自动侦测：跨频道刷屏 (Anti-Spam)",
+      "en-US": "Auto-detected: Cross-channel spamming"
+    },
+    "stt_processing": {
+      "zh-TW": " 正在聆聽並轉錄語音，請稍候...",
+      "zh-CN": " 正在聆听并转录语音，请稍候...",
+      "en-US": " Listening and transcribing, please wait..."
+    },
+    "stt_no_voice": {
+      "zh-TW": " 請**回覆**一則語音訊息或音訊檔案，並 @我。",
+      "zh-CN": " 请**回复**一则语音消息或音频文件，并 @我。",
+      "en-US": " Please **reply** to a voice message or audio file and @mention me."
+    },
+    "stt_result_title": {
+      "zh-TW": " 語音轉文字結果",
+      "zh-CN": " 语音转文字结果",
+      "en-US": " Transcription Result"
+    },
+    "stt_error": {
+      "zh-TW": "語音轉錄失敗，請稍後再試。",
+      "zh-CN": "语音转录失败，请稍后再试。",
+      "en-US": "Transcription failed. Please try again later."
+    },
+    "summary_analyzing": {
+      "zh-TW": "正在讀取從該訊息之後的對話紀錄並進行分析...",
+      "zh-CN": "正在读取从该消息之后的对话纪录并进行分析...",
+      "en-US": "Reading chat history from that message onwards..."
+    },
+    "summary_result_title": {
+      "zh-TW": " 對話脈絡總結",
+      "zh-CN": " 对话脉络总结",
+      "en-US": " Context Summary"
+    },
+    "summary_no_content": {
+      "zh-TW": " 該訊息之後沒有足夠的文字內容可以分析。",
+      "zh-CN": " 该消息之后没有足够的文字内容可以分析。",
+      "en-US": " Not enough text content found after that message."
+    },
+    "ai_error": {
+      "zh-TW": "AI 內容生成失敗，請稍後再試。",
+      "zh-CN": "AI 内容生成失败，请稍后再试。",
+      "en-US": "AI generation failed. Please try again later."
+    },
+    "ai_not_configured": {
+      "zh-TW": " 尚未設定 Groq API Key，此功能無法使用。",
+      "zh-CN": " 尚未设定 Groq API Key，此功能无法使用。",
+      "en-US": " Groq API Key not configured."
+    },
+    "whitelist_empty": {
+      "zh-TW": "ℹ 目前白名單是空的",
+      "zh-CN": "ℹ 目前白名单是空的",
+      "en-US": "ℹ Whitelist is empty"
+    },
+    "server_setting_title": {
+      "zh-TW": " 伺服器設定面板",
+      "zh-CN": " 服务器设置面板",
+      "en-US": " Server Settings Panel"
+    },
+    "server_setting_desc": {
+      "zh-TW": "請透過下方選單選擇您要管理的功能",
+      "zh-CN": "请通过下方菜单选择您要管理的功能",
+      "en-US": "Please select a function to manage from the menu below"
+    },
+    "anti_fraud_title": {
+      "zh-TW": " 反詐騙與白名單設定",
+      "zh-CN": " 反诈骗与白名单设置",
+      "en-US": " Anti-Fraud & Whitelist Settings"
+    },
+    "anti_fraud_desc": {
+      "zh-TW": "請選擇要執行的蜜罐、封禁詞或白名單操作",
+      "zh-CN": "请选择要执行的蜜罐、封禁词或白名单操作",
+      "en-US": "Select an action for honeypot, banned texts, or whitelist"
+    },
+    "trigger_setting_title": {
+      "zh-TW": " 自動回覆設定",
+      "zh-CN": " 自动回复设置",
+      "en-US": " Auto-Reply Settings"
+    },
+    "trigger_setting_desc": {
+      "zh-TW": "新增、刪除或查看目前的觸發詞",
+      "zh-CN": "新增、删除或查看目前的触发词",
+      "en-US": "Add, delete, or view current triggers"
+    },
+    "panel_role_added": {
+      "zh-TW": " 已為您新增身分組：{role}",
+      "zh-CN": " 已为您新增身份组：{role}",
+      "en-US": " Role added: {role}"
+    },
+    "panel_role_removed": {
+      "zh-TW": " 已移除您的身分組：{role}",
+      "zh-CN": " 已移除您的身份组：{role}",
+      "en-US": " Role removed: {role}"
+    },
+    "panel_role_error": {
+      "zh-TW": " 無法變更身分組 (可能權限不足或身分組不存在)",
+      "zh-CN": " 无法变更身份组 (可能权限不足或身份组不存在)",
+      "en-US": " Failed to change role (Missing permissions or role not found)"
+    },
+    "panel_form_submitted": {
+      "zh-TW": " 表單已提交！",
+      "zh-CN": " 表单已提交！",
+      "en-US": " Form submitted!"
+    },
+    "panel_hidden_msg_title": {
+      "zh-TW": " 隱藏訊息",
+      "zh-CN": " 隐藏消息",
+      "en-US": " Hidden Message"
+    },
+    "panel_no_changes": {
+      "zh-TW": "沒有變化。",
+      "zh-CN": "没有变化。",
+      "en-US": "No changes."
+    },
+    "error_cog_not_loaded": {
+      "zh-TW": " 錯誤：系統模組尚未載入。",
+      "zh-CN": " 错误：系统模块尚未载入。",
+      "en-US": " Error: System Cog not loaded."
+    },
+    "error_button_execution": {
+      "zh-TW": " 執行按鈕時發生錯誤。",
+      "zh-CN": " 执行按钮时发生错误。",
+      "en-US": " Error executing button."
+    },
+    "error_log_channel_not_configured": {
+      "zh-TW": " 錯誤：尚未設定紀錄頻道。",
+      "zh-CN": " 错误：尚未设定纪录频道。",
+      "en-US": " Error: Log channel not configured."
+    },
+    "error_log_channel_not_found": {
+      "zh-TW": " 錯誤：找不到紀錄頻道。",
+      "zh-CN": " 错误：找不到纪录频道。",
+      "en-US": " Error: Log channel not found."
+    },
+    "verify_already_processed": {
+      "zh-TW": " 此申請已被處理。",
+      "zh-CN": " 此申请已被处理。",
+      "en-US": " This request has already been processed."
+    },
+    "verify_already_has_role": {
+      "zh-TW": " 您已經擁有該身分組，無需重複申請。",
+      "zh-CN": " 您已经拥有该身份组，无需重复申请。",
+      "en-US": " You already have this role."
+    },
+    "verify_log_title": {
+      "zh-TW": " 新的申請提交",
+      "zh-CN": " 新的申请提交",
+      "en-US": " New Submission"
+    },
+    "verify_log_desc": {
+      "zh-TW": " 提交者：{user}\n 時間：{time}\n\n**內容：**\n```\n{content}\n```",
+      "zh-CN": " 提交者：{user}\n 时间：{time}\n\n**内容：**\n```\n{content}\n```",
+      "en-US": " User: {user}\n Time: {time}\n\n**Content:**\n```\n{content}\n```"
+    },
+    "verify_approved": {
+      "zh-TW": " **已通過** (操作者: {admin})",
+      "zh-CN": " **已通过** (操作者: {admin})",
+      "en-US": " **Approved** (By: {admin})"
+    },
+    "verify_denied": {
+      "zh-TW": " **已拒絕** (操作者: {admin})",
+      "zh-CN": " **已拒绝** (操作者: {admin})",
+      "en-US": " **Denied** (By: {admin})"
+    },
+    "verify_notify_approved": {
+      "zh-TW": " 恭喜！您的申請已通過，已獲得身分組：{role}",
+      "zh-CN": " 恭喜！您的申请已通过，已获得身份组：{role}",
+      "en-US": " Congratulations! Your application is approved. Role added: {role}"
+    },
+    "verify_notify_denied": {
+      "zh-TW": " 很抱歉，您的申請未通過。",
+      "zh-CN": " 很抱歉，您的申请未通过。",
+      "en-US": " Sorry, your application was denied."
+    },
+    "verify_role_error": {
+      "zh-TW": " 給予身分組失敗，請檢查機器人權限。",
+      "zh-CN": " 给予身份组失败，请检查机器人权限。",
+      "en-US": " Failed to add role. Check bot permissions."
+    },
+    "panel_btn_added": {
+      "zh-TW": " 已新增按鈕，請繼續編輯或發布。",
+      "zh-CN": " 已新增按钮，请继续编辑或发布。",
+      "en-US": " Button added."
+    },
+    "error_url": {
+      "zh-TW": " 圖片網址無效",
+      "zh-CN": " 图片网址无效",
+      "en-US": " Invalid URL"
+    },
+    "log_title_form": {
+      "zh-TW": " 新的表單回報",
+      "zh-CN": " 新的表单回报",
+      "en-US": " New Form Submission"
+    },
+    "log_title_apply": {
+      "zh-TW": " 新的身分組申請",
+      "zh-CN": " 新的身份组申请",
+      "en-US": " New Role Application"
+    },
+    "notify_status_user_left": {
+      "zh-TW": " 用戶已離開伺服器，無法通知。",
+      "zh-CN": " 用户已离开服务器，无法通知。",
+      "en-US": " User left the server, cannot notify."
+    },
+    "notify_status_sent_channel": {
+      "zh-TW": "( 通知已發送至 {channel})",
+      "zh-CN": "( 通知已发送至 {channel})",
+      "en-US": "( Notification sent to {channel})"
+    },
+    "notify_status_sent_dm": {
+      "zh-TW": "( 通知已私訊用戶)",
+      "zh-CN": "( 通知已私信用户)",
+      "en-US": "( Notification sent via DM)"
+    },
+    "notify_status_failed": {
+      "zh-TW": "( 通知失敗：未設定頻道且用戶關閉私訊)",
+      "zh-CN": "( 通知失败：未设定频道且用户关闭私信)",
+      "en-US": "( Notification failed: No channel set & DM closed)"
+    },
+    "notify_title_result": {
+      "zh-TW": "身分組 {role} 申請結果",
+      "zh-CN": "身分组 {role} 申请结果",
+      "en-US": "Role {role} Application Result"
+    },
+    "notify_label_result": {
+      "zh-TW": "申請結果",
+      "zh-CN": "申请结果",
+      "en-US": "Result"
+    },
+    "notify_label_time": {
+      "zh-TW": "時間",
+      "zh-CN": "时间",
+      "en-US": "Time"
+    },
+    "notify_label_reviewer": {
+      "zh-TW": "審核者",
+      "zh-CN": "审核者",
+      "en-US": "Reviewer"
+    },
+    "notify_status_approved": {
+      "zh-TW": " 通過",
+      "zh-CN": " 通过",
+      "en-US": " Approved"
+    },
+    "notify_status_denied": {
+      "zh-TW": " 拒絕",
+      "zh-CN": " 拒绝",
+      "en-US": " Denied"
+    },
+    "notify_footer": {
+      "zh-TW": "來自伺服器: {guild}",
+      "zh-CN": "来自服务器: {guild}",
+      "en-US": "From Server: {guild}"
+    },
+    "whitelist_menu_title": {
+      "zh-TW": " **信任名單管理**\n請選擇您要執行的操作：",
+      "zh-CN": " **信任名单管理**\n请选择您要执行的操作：",
+      "en-US": " **Whitelist Management**\nPlease select an action:"
+    },
+    "honeypot_menu_title": {
+      "zh-TW": " **蜜罐系統管理**\n請選擇您要執行的操作：",
+      "zh-CN": " **蜜罐系统管理**\n请选择您要执行的操作：",
+      "en-US": " **Honeypot Management**\nPlease select an action:"
+    },
+    "verify_no_entry_found": {
+      "zh-TW": "找不到你的驗證紀錄，請聯繫伺服器管理員協助處理。",
+      "zh-CN": "找不到你的验证纪录，请联系服务器管理员协助处理。",
+      "en-US": "No verification record found. Please contact a server admin."
+    },
+    "verify_already_approved": {
+      "zh-TW": " 你已經完成驗證了。",
+      "zh-CN": " 你已经完成验证了。",
+      "en-US": " You are already verified."
+    },
+    "verify_pending_review_channel": {
+      "zh-TW": "你的帳號先前被判定為高風險，正在等待人工審核，審核頻道：{channel}，請耐心等待管理員處理。",
+      "zh-CN": "你的账号先前被判定为高风险，正在等待人工审核，审核频道：{channel}，请耐心等待管理员处理。",
+      "en-US": "Your account was previously flagged as high risk and is awaiting manual review. Review channel: {channel}. Please wait for an admin to process it."
+    },
+    "verify_success": {
+      "zh-TW": "驗證成功，歡迎加入！",
+      "zh-CN": "验证成功，欢迎加入！",
+      "en-US": "Verification successful, welcome!"
+    },
+    "verify_review_channel_opened": {
+      "zh-TW": "你的帳號被系統判定為高風險，需要人工審核。已為你建立審核頻道：{channel}，請在裡面說明你的情況，等待管理員審核。",
+      "zh-CN": "你的账号被系统判定为高风险，需要人工审核。已为你建立审核频道：{channel}，请在里面说明你的情况，等待管理员审核。",
+      "en-US": "Your account was flagged as high risk and requires manual review. A review channel has been created for you: {channel}. Please explain your situation there and wait for admin review."
+    },
+    "verify_member_not_found": {
+      "zh-TW": " 找不到該成員，可能已離開伺服器。",
+      "zh-CN": " 找不到该成员，可能已离开服务器。",
+      "en-US": " Member not found, they may have left the server."
+    },
+    "verify_review_admin_only": {
+      "zh-TW": "只有管理員能執行審核操作。",
+      "zh-CN": "只有管理员能执行审核操作。",
+      "en-US": "Only administrators can perform review actions."
+    },
+    "verify_rejected": {
+      "zh-TW": "你的驗證申請已被管理員拒絕，如有疑問請直接聯繫伺服器管理員。",
+      "zh-CN": "你的验证申请已被管理员拒绝，如有疑问请直接联系服务器管理员。",
+      "en-US": "Your verification request has been denied by an admin. Please contact a server admin if you have questions."
+    },
+    "verification_review_title": {
+      "zh-TW": " 新成員驗證審核",
+      "zh-CN": " 新成员验证审核",
+      "en-US": " New Member Verification Review"
+    },
+    "verification_review_desc": {
+      "zh-TW": "使用者：{user}（`{user_tag}`）\n帳號建立於：{days} 天前\n\n請在下方說明你的情況，管理員審核後會給予對應的身分組。",
+      "zh-CN": "用户：{user}（`{user_tag}`）\n账号建立于：{days} 天前\n\n请在下方说明你的情况，管理员审核后会给予对应的身份组。",
+      "en-US": "User: {user} (`{user_tag}`)\nAccount created {days} days ago\n\nPlease explain your situation below. An admin will assign the appropriate role after review."
+    },
+    "verification_review_closing": {
+      "zh-TW": "此審核已完成，頻道將於 10 秒後自動關閉。",
+      "zh-CN": "此审核已完成，频道将于 10 秒后自动关闭。",
+      "en-US": "This review is complete. The channel will close automatically in 10 seconds."
+    },
+    "verification_lockdown_warning": {
+      "zh-TW": "**啟用驗證系統將會：**\n1. 把「已驗證身分組」發給目前伺服器所有現有成員\n2. 把所有頻道設定為一般成員（@everyone）無法發言，只有已驗證身分組能發言\n\n這個操作會影響整個伺服器，且**不會自動復原**，確定要繼續嗎？",
+      "zh-CN": "**启用验证系统将会：**\n1. 把「已验证身份组」发给目前服务器所有现有成员\n2. 把所有频道设定为一般成员（@everyone）无法发言，只有已验证身份组能发言\n\n这个操作会影响整个服务器，且**不会自动复原**，确定要继续吗？",
+      "en-US": "**Enabling verification will:**\n1. Grant the verified role to all current members\n2. Set all channels so @everyone cannot send messages, only the verified role can\n\nThis affects the entire server and **cannot be undone automatically**. Continue?"
+    },
+    "verification_lockdown_incomplete": {
+      "zh-TW": "請先設定待驗證身分組、已驗證身分組與驗證頻道，才能啟用此功能。",
+      "zh-CN": "请先设定待验证身份组、已验证身份组与验证频道，才能启用此功能。",
+      "en-US": "Please configure the restricted role, verified role, and verification channel before enabling."
+    },
+    "verification_lockdown_processing": {
+      "zh-TW": "正在處理中，請稍候……",
+      "zh-CN": "正在处理中，请稍候……",
+      "en-US": "Processing, please wait..."
+    },
+    "verification_lockdown_complete": {
+      "zh-TW": "已完成：{member_count} 位現有成員已取得已驗證身分組，{channel_count} 個頻道已鎖定發言權限。",
+      "zh-CN": "已完成：{member_count} 位现有成员已取得已验证身份组，{channel_count} 个频道已锁定发言权限。",
+      "en-US": "Done: {member_count} existing members granted the verified role, {channel_count} channels locked."
+    },
+    "verification_lockdown_failed": {
+      "zh-TW": "驗證系統啟用失敗，本次變更已回復，系統維持停用。請檢查機器人權限與身分組階級。",
+      "zh-CN": "验证系统启用失败，本次变更已恢复，系统维持停用。请检查机器人权限与身份组层级。",
+      "en-US": "Verification could not be enabled. This attempt was rolled back and the system remains disabled. Check the bot permissions and role hierarchy."
+    },
+    "verification_lockdown_rollback_failed": {
+      "zh-TW": "驗證系統啟用失敗，且部分變更無法自動回復。系統維持停用，請立即檢查錯誤日誌與頻道權限。",
+      "zh-CN": "验证系统启用失败，且部分变更无法自动恢复。系统维持停用，请立即检查错误日志与频道权限。",
+      "en-US": "Verification could not be enabled and some changes could not be rolled back. The system remains disabled. Check the error log and channel permissions immediately."
+    },
+    "verification_lockdown_cancelled": {
+      "zh-TW": "已取消，驗證系統維持關閉狀態。",
+      "zh-CN": "已取消，验证系统维持关闭状态。",
+      "en-US": "Cancelled. Verification remains disabled."
+    },
+    "spam_same_channel_reason": {
+      "zh-TW": "洗版偵測：單一頻道重複發送相同訊息",
+      "zh-CN": "刷屏检测：单一频道重复发送相同消息",
+      "en-US": "Spam Detected: Repeated messages in same channel"
+    },
+    "spam_detected_single_log": {
+      "zh-TW": " **防洗版觸發 (同頻重複)**\n用戶：{user}\n頻道：{channel}\n次數：{count} 次\n內容預覽：\n`{content}`",
+      "zh-CN": " **防刷屏触发 (同频重复)**\n用户：{user}\n频道：{channel}\n次数：{count} 次\n内容预览：\n`{content}`",
+      "en-US": " **Anti-Spam (Same Channel)**\nUser: {user}\nChannel: {channel}\nCount: {count}\nContent:\n`{content}`"
+    },
+    "link_unsafe_warning": {
+      "zh-TW": " **警告**：此連結被偵測為潛在的不安全連結！請勿隨意點擊。\n連結：`{url}`",
+      "zh-CN": " **警告**：此链接被检测为潜在的不安全链接！请勿随意点击。\n链接：`{url}`",
+      "en-US": " **WARNING**: This link is flagged as potentially unsafe! Do not click.\nLink: `{url}`"
+    },
+    "welcome_panel_title": {
+      "zh-TW": " 歡迎系統配置面板",
+      "zh-CN": " 欢迎系统配置面板",
+      "en-US": " Welcome System Configuration"
+    },
+    "welcome_panel_desc": {
+      "zh-TW": "在此您可以設定新成員加入時的自動歡迎訊息。\n\n** 操作說明：**\n1. **設定頻道**：選擇訊息發送的位置。\n2. **切換頭像**：決定是否顯示成員頭像縮圖。\n3. **編輯內容**：撰寫標題、內文與底部文字。\n\n** 支援變數：**\n- `[user]`：標註成員 (Ping)\n- `[username]`：純文字顯示成員名稱\n- `[people]`：伺服器總人數\n- `[server]`：伺服器名稱",
+      "zh-CN": "在此您可以设定新成员加入时的自动欢迎消息。\n\n** 操作说明：**\n1. **设定频道**：选择消息发送的位置。\n2. **切换头像**：决定是否显示成员头像缩图。\n3. **编辑内容**：撰写标题、内文与底部文字。\n\n** 支持变量：**\n- `[user]`：标注成员 (Ping)\n- `[username]`：纯文字显示成员名称\n- `[people]`：服务器总人数\n- `[server]`：服务器名称",
+      "en-US": "Configure automatic welcome messages for new members.\n\n** Instructions:**\n1. **Set Channel**: Choose where to send the message.\n2. **Toggle Avatar**: Show or hide the member's avatar.\n3. **Edit Content**: Write the Title, Description, and Footer.\n\n** Supported Tags:**\n- `[user]`: Mention user\n- `[username]`: Plain username\n- `[people]`: Total member count\n- `[server]`: Server name"
+    },
+    "welcome_avatar_state": {
+      "zh-TW": "當前頭像顯示狀態：**{state}**",
+      "zh-CN": "当前头像显示状态：**{state}**",
+      "en-US": "Current Avatar state: **{state}**"
+    },
+    "warning_panel_title": {
+      "zh-TW": " 定時提醒系統配置面板",
+      "zh-CN": " 定时提醒系统配置面板",
+      "en-US": " Warning System Dashboard"
+    },
+    "warning_panel_desc": {
+      "zh-TW": "在此管理您的自動廣播與活動提醒。請從下方選單選擇操作。\n\n** 支援變數與 MD 語法：**\n- `[people]`：伺服器總人數 / `[server]`：伺服器名稱\n- ** 支援 Markdown** (如 `**粗體**`, `# 大標題`, `> 引用`)",
+      "zh-CN": "在此管理您的自动广播与活动提醒。请从下方菜单选择操作。\n\n** 支持变量与 MD 语法：**\n- `[people]`：服务器总人数 / `[server]`：服务器名称\n- ** 支持 Markdown** (如 `**粗体**`, `# 大标题`, `> 引用`)",
+      "en-US": "Manage your automated broadcasts and reminders.\n\n** Supported Tags & MD:**\n- `[people]`: Total members / `[server]`: Server name\n- ** Supports Markdown**"
+    },
+    "warning_no_data": {
+      "zh-TW": "*(目前尚未設定任何提醒，請點擊下方選單新增)*",
+      "zh-CN": "*(目前尚未设定任何提醒，请点击下方菜单新增)*",
+      "en-US": "*(No warnings configured yet. Add one below)*"
+    },
+    "warning_success_saved": {
+      "zh-TW": " 提醒排程已成功儲存！",
+      "zh-CN": " 提醒排程已成功储存！",
+      "en-US": " Warning schedule saved successfully!"
+    },
+    "warning_success_deleted": {
+      "zh-TW": " 提醒排程已刪除！",
+      "zh-CN": " 提醒排程已删除！",
+      "en-US": " Warning deleted!"
+    },
+    "warning_success_toggled": {
+      "zh-TW": " 提醒狀態已切換為：{status}",
+      "zh-CN": " 提醒状态已切换为：{status}",
+      "en-US": " Warning status toggled to: {status}"
+    },
+    "warning_field_name": {
+      "zh-TW": "[{title}] {status}",
+      "zh-CN": "[{title}] {status}",
+      "en-US": "[{title}] {status}"
+    },
+    "warning_field_value": {
+      "zh-TW": "**頻道**：{channel}\n**標註**：{role}\n**排程**：`{schedule}`",
+      "zh-CN": "**频道**：{channel}\n**标注**：{role}\n**排程**：`{schedule}`",
+      "en-US": "**Channel**: {channel}\n**Role**: {role}\n**Schedule**: `{schedule}`"
+    },
+    "verification_panel_title": {
+      "zh-TW": "新成員驗證系統",
+      "zh-CN": "新成员验证系统",
+      "en-US": "New Member Verification"
+    },
+    "verification_panel_description": {
+      "zh-TW": "新成員加入後會先被限制，完成驗證或由管理員審核後才能解鎖。",
+      "zh-CN": "新成员加入后会先被限制，完成验证或由管理员审核后才能解锁。",
+      "en-US": "New members remain restricted until verification or administrator approval."
+    },
+    "verification_status": {
+      "zh-TW": "狀態",
+      "zh-CN": "状态",
+      "en-US": "Status"
+    },
+    "verification_restricted_role": {
+      "zh-TW": "待驗證身分組",
+      "zh-CN": "待验证身份组",
+      "en-US": "Restricted Role"
+    },
+    "verification_verified_role": {
+      "zh-TW": "已驗證身分組",
+      "zh-CN": "已验证身份组",
+      "en-US": "Verified Role"
+    },
+    "verification_channel": {
+      "zh-TW": "驗證頻道",
+      "zh-CN": "验证频道",
+      "en-US": "Verification Channel"
+    },
+    "verification_review_role": {
+      "zh-TW": "審核人員身分組",
+      "zh-CN": "审核人员身份组",
+      "en-US": "Review Staff Role"
+    },
+    "verification_publish_title": {
+      "zh-TW": "新成員驗證",
+      "zh-CN": "新成员验证",
+      "en-US": "New Member Verification"
+    },
+    "verification_publish_description": {
+      "zh-TW": "請點擊下方按鈕完成驗證，即可解鎖其他頻道。",
+      "zh-CN": "请点击下方按钮完成验证，即可解锁其他频道。",
+      "en-US": "Use the button below to complete verification and unlock other channels."
+    },
+    "verification_publish_success": {
+      "zh-TW": "已發布驗證面板至 {channel}",
+      "zh-CN": "已发布验证面板至 {channel}",
+      "en-US": "Verification panel published to {channel}"
+    },
+    "verification_channel_required": {
+      "zh-TW": "請先設定驗證頻道。",
+      "zh-CN": "请先设定验证频道。",
+      "en-US": "Configure a verification channel first."
+    },
+    "verification_channel_not_found": {
+      "zh-TW": "找不到驗證頻道，請重新設定。",
+      "zh-CN": "找不到验证频道，请重新设定。",
+      "en-US": "Verification channel not found. Configure it again."
+    },
+    "verification_setting_success": {
+      "zh-TW": "驗證系統設定已更新。",
+      "zh-CN": "验证系统设定已更新。",
+      "en-US": "Verification settings updated."
+    },
+    "verification_publish_error": {
+      "zh-TW": "發布驗證面板失敗。",
+      "zh-CN": "发布验证面板失败。",
+      "en-US": "Failed to publish the verification panel."
+    },
+    "setting_status_updated": {
+      "zh-TW": "{feature}已切換為：{status}",
+      "zh-CN": "{feature}已切换为：{status}",
+      "en-US": "{feature} changed to: {status}"
+    }
+  }
+}
+

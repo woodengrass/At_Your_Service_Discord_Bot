@@ -1,0 +1,25 @@
+{
+  "anti_spam": {
+    "time_window_seconds": 120,
+    "channel_threshold": 4,
+    "same_channel_threshold": 6,
+    "timeout_hours": 240,
+    "cleanup_interval_minutes": 10
+  },
+  "ai_settings": {
+    "chat_summary_model": "llama-3.3-70b-versatile",
+    "voice_transcribe_model": "whisper-large-v3",
+    "chat_history_limit": 1000
+  },
+  "people_counting": {
+    "update_interval_minutes": 10
+  },
+  "anti_raid": {
+    "join_window_seconds": 60,
+    "join_threshold": 10
+  },
+  "verification": {
+    "new_account_days": 7,
+    "risk_threshold": 2
+  }
+}

@@ -173,7 +173,13 @@ class VerificationLockdownConfirmView(discord.ui.View):
             )
             return
 
-        result = await lockdown_and_grandfather(interaction.guild, restricted_role, verified_role)
+        honeypot_config = GuildSettings.get_module_config(self.guild_id, "honeypot")
+        honeypot_channel_id_str = honeypot_config.get("channel_id")
+        honeypot_channel_id = int(honeypot_channel_id_str) if honeypot_channel_id_str else None
+
+        result = await lockdown_and_grandfather(
+            interaction.guild, restricted_role, verified_role, honeypot_channel_id
+        )
 
         if not result["success"]:
             updated_view = VerificationSettingView(self.guild_id)

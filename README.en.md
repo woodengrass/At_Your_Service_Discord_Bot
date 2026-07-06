@@ -190,8 +190,6 @@ honeypot-discord-bot/
 |-- data/                  # SQLite persistent data
 |-- locales/languages.json # Localized text
 |-- .env.example           # Environment variable template
-|-- CONVENTIONS.md         # Development conventions
-|-- AGENTS.md              # Codex project instructions
 |-- LICENSE                # GPL-3.0 license
 |-- README.md              # Traditional Chinese documentation
 `-- README.en.md           # English documentation
@@ -217,7 +215,7 @@ Check the corresponding API key in `token.env`, verify model availability, and i
 
 ## Contributing
 
-Issues and pull requests are welcome. Read `CONVENTIONS.md` before making changes. Pull requests should:
+Issues and pull requests are welcome. Pull requests should:
 
 - Run on Python 3.11.
 - Contain no tokens, API keys, logs, or private data.

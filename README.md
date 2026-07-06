@@ -173,8 +173,6 @@ honeypot-discord-bot/
 |-- data/                  # SQLite 持久化資料
 |-- locales/languages.json # 多語言文字
 |-- .env.example           # 環境變數範例
-|-- CONVENTIONS.md         # 開發規範
-|-- AGENTS.md              # Codex 專案指令
 |-- LICENSE                # GPL-3.0
 |-- README.md              # 繁體中文文件
 `-- README.en.md           # 英文文件
@@ -206,7 +204,7 @@ honeypot-discord-bot/
 
 ## 貢獻
 
-歡迎提交 Issue 或 Pull Request。修改前請閱讀 `CONVENTIONS.md`。Pull Request 應符合以下要求：
+歡迎提交 Issue 或 Pull Request。Pull Request 應符合以下要求：
 
 - 可在 Python 3.11 執行。
 - 不包含 Token、API Key、日誌或私密資料。

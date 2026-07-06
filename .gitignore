@@ -59,3 +59,6 @@ cogs/text_triggers.py
 config/counting.json
 config/honeypot_config.json
 config/ticket.json
+
+#臨時輸入資料(例如用來添加已知詐騙圖片的)
+scam_image/

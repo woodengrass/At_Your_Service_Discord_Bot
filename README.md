@@ -223,3 +223,7 @@ honeypot-discord-bot/
 ## 致謝
 
 感謝 Linvin 提供蜜罐功能的想法與相關原始碼參考。
+
+
+另外說實話現在AI真好用，本專案所有的註釋和commit都是AI寫的，真棒
+~~除了邪惡claude速度慢tokens又給的少，有些事情還不如我自己做~~

@@ -1,16 +1,37 @@
-﻿from discord.ext import commands
+﻿import asyncio
+import logging
+import os
+
+import imagehash
+from discord.ext import commands
+from PIL import Image
 
 from core import console_dispatcher
-from features.link_checker.repository import add_keyword, get_all_keywords, remove_keyword
 from core.audit_log_repository import delete_user_logs
+from features.link_checker.repository import (
+    add_keyword,
+    add_scam_hash,
+    get_all_keywords,
+    get_all_scam_hashes,
+    remove_keyword,
+    remove_scam_hash,
+)
+
+logger = logging.getLogger(__name__)
+
+IMAGE_FILE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")
 
 HELP_TEXT = """
 [管理員終端機工具] 可用指令（直接在終端機輸入後按 Enter）：
-  admin help                       顯示這個說明
-  admin keyword list               列出所有連結檢查可疑關鍵字
-  admin keyword add <keyword>      新增連結檢查可疑關鍵字
-  admin keyword remove <keyword>   移除連結檢查可疑關鍵字
-  admin gdpr delete <user_id>      刪除指定使用者在所有伺服器的稽核紀錄
+  admin help                              顯示這個說明
+  admin keyword list                      列出所有連結檢查可疑關鍵字
+  admin keyword add <keyword>             新增連結檢查可疑關鍵字
+  admin keyword remove <keyword>          移除連結檢查可疑關鍵字
+  admin gdpr delete <user_id>             刪除指定使用者在所有伺服器的稽核紀錄
+  admin scamimage list                    列出所有已知詐騙圖片的雜湊
+  admin scamimage add <圖片路徑> [標籤]     新增一張詐騙圖片
+  admin scamimage remove <圖片路徑>        依圖片內容移除對應的雜湊紀錄
+  admin scamimage sync <資料夾路徑>        掃描整個資料夾，匯入尚未加入的圖片（可重複執行）
 """
 
 
@@ -52,6 +73,8 @@ class AdminConsole(commands.Cog):
             await self._handle_keyword_command(parts[2:])
         elif parts[1] == "gdpr":
             await self._handle_gdpr_command(parts[2:])
+        elif parts[1] == "scamimage":
+            await self._handle_scamimage_command(parts[2:])
         else:
             print(f"[管理員終端機工具] 不認得的指令：{line}，輸入 'admin help' 看說明。")
 
@@ -119,6 +142,150 @@ class AdminConsole(commands.Cog):
 
         deleted_count = await delete_user_logs(user_id)
         print(f"[管理員終端機工具] 已刪除使用者 {user_id} 的 {deleted_count} 筆稽核紀錄。")
+
+    async def _handle_scamimage_command(self, args: list[str]) -> None:
+        """
+        處理 scamimage 子指令：list/add/remove/sync。
+
+        Args:
+            args: "scamimage" 之後的參數列表
+        """
+        if not args:
+            print("[管理員終端機工具] 請指定 scamimage 子指令：list/add/remove/sync。")
+            return
+
+        sub_command = args[0]
+
+        if sub_command == "list":
+            scam_hashes = await get_all_scam_hashes()
+            if not scam_hashes:
+                print("[管理員終端機工具] 目前沒有任何詐騙圖片雜湊。")
+                return
+            print(f"[管理員終端機工具] 目前有 {len(scam_hashes)} 筆詐騙圖片雜湊：")
+            for phash, label in scam_hashes:
+                print(f"  {phash}  {label or ''}")
+            return
+
+        if sub_command == "sync":
+            if len(args) < 2:
+                print("[管理員終端機工具] 用法：admin scamimage sync <資料夾路徑>")
+                return
+            await self._sync_scam_image_folder(args[1])
+            return
+
+        if sub_command == "add":
+            if len(args) < 2:
+                print("[管理員終端機工具] 用法：admin scamimage add <圖片路徑> [標籤]")
+                return
+            label = args[2] if len(args) > 2 else os.path.basename(args[1])
+            await self._add_scam_image_file(args[1], label)
+            return
+
+        if sub_command == "remove":
+            if len(args) < 2:
+                print("[管理員終端機工具] 用法：admin scamimage remove <圖片路徑>")
+                return
+            await self._remove_scam_image_file(args[1])
+            return
+
+        print(f"[管理員終端機工具] 不認得的 scamimage 子指令：{sub_command}")
+
+    def _compute_image_hash(self, file_path: str) -> str | None:
+        """
+        計算單一圖片檔案的感知雜湊值，內含檔案 I/O 與 CPU-bound 運算，呼叫端應以 asyncio.to_thread 執行。
+
+        Args:
+            file_path: 圖片檔案路徑
+
+        Returns:
+            感知雜湊值的十六進位字串；讀取或計算失敗則回傳 None
+        """
+        try:
+            with Image.open(file_path) as image:
+                return str(imagehash.phash(image))
+        except Exception as error:
+            logger.error(f"計算圖片雜湊失敗（{file_path}）：{error}", exc_info=True)
+            return None
+
+    async def _add_scam_image_file(self, file_path: str, label: str) -> None:
+        """
+        將單一圖片檔案的感知雜湊新增到詐騙圖片資料庫。
+
+        Args:
+            file_path: 圖片檔案路徑
+            label: 用於辨識來源的標籤
+        """
+        phash = await asyncio.to_thread(self._compute_image_hash, file_path)
+        if phash is None:
+            print(f"[管理員終端機工具] 無法讀取圖片：{file_path}")
+            return
+
+        added = await add_scam_hash(phash, label)
+        if added:
+            await self._refresh_link_checker_scam_hashes()
+            print(f"[管理員終端機工具] 已新增詐騙圖片雜湊：{file_path}（標籤：{label}）")
+        else:
+            print(f"[管理員終端機工具] 這張圖片的雜湊已經存在，略過：{file_path}")
+
+    async def _remove_scam_image_file(self, file_path: str) -> None:
+        """
+        依圖片內容找出對應的感知雜湊並從詐騙圖片資料庫移除。
+
+        Args:
+            file_path: 圖片檔案路徑
+        """
+        phash = await asyncio.to_thread(self._compute_image_hash, file_path)
+        if phash is None:
+            print(f"[管理員終端機工具] 無法讀取圖片：{file_path}")
+            return
+
+        removed = await remove_scam_hash(phash)
+        if removed:
+            await self._refresh_link_checker_scam_hashes()
+            print(f"[管理員終端機工具] 已移除詐騙圖片雜湊：{file_path}")
+        else:
+            print(f"[管理員終端機工具] 找不到對應的雜湊紀錄：{file_path}")
+
+    async def _sync_scam_image_folder(self, folder_path: str) -> None:
+        """
+        掃描整個資料夾，將尚未匯入的圖片新增到詐騙圖片資料庫。設計成可重複執行，
+        已存在的雜湊會自動略過，方便日後持續加入新的詐騙圖片樣本。
+
+        Args:
+            folder_path: 資料夾路徑
+        """
+        if not os.path.isdir(folder_path):
+            print(f"[管理員終端機工具] 找不到資料夾：{folder_path}")
+            return
+
+        added_count = 0
+        skipped_count = 0
+        for filename in sorted(os.listdir(folder_path)):
+            if not filename.lower().endswith(IMAGE_FILE_EXTENSIONS):
+                continue
+            file_path = os.path.join(folder_path, filename)
+            phash = await asyncio.to_thread(self._compute_image_hash, file_path)
+            if phash is None:
+                continue
+            added = await add_scam_hash(phash, filename)
+            if added:
+                added_count += 1
+            else:
+                skipped_count += 1
+
+        await self._refresh_link_checker_scam_hashes()
+        print(
+            f"[管理員終端機工具] 掃描完成，資料夾：{folder_path}，"
+            f"新增 {added_count} 筆，略過（已存在）{skipped_count} 筆。"
+        )
+
+    async def _refresh_link_checker_scam_hashes(self) -> None:
+        """
+        通知 LinkChecker Cog 重新載入詐騙圖片雜湊快取，讓新增/移除的雜湊立即生效。
+        """
+        link_checker_cog = self.bot.get_cog("LinkChecker")
+        if link_checker_cog:
+            await link_checker_cog.reload_scam_hashes()
 
     async def _refresh_link_checker_cache(self) -> None:
         """

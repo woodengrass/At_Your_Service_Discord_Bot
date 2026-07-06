@@ -23,6 +23,7 @@
 - 防炸群：偵測短時間內大量成員加入並發出警示。
 - 新成員驗證系統：被動風險評分＋按鈕驗證，高風險成員轉真人審核（獨立私人頻道），啟用時可一次性放行既有成員並鎖定頻道發言權限。
 - 使用 Google Safe Browsing API 與可自訂關鍵字黑名單檢查惡意連結。
+- 圖片詐騙偵測：比對已知詐騙圖片的感知雜湊資料庫，並解碼圖片附件中的 QR code（解出的網址會併入相同的網址安全性檢查流程）。
 - 白名單與 Discord 防護事件通知。
 - 重要防護事件及處置結果寫入資料庫稽核紀錄與本機輪替日誌。
 
@@ -138,7 +139,7 @@ python bot.py
 
 新成員驗證系統沒有獨立指令，透過 `/anti_fraud_setting` 面板內的選單設定與啟用。
 
-連結檢查關鍵字黑名單管理與 GDPR 稽核紀錄刪除不透過 Discord 指令開放，而是機器人擁有者在執行機器人的終端機輸入文字指令操作（`admin keyword list/add/remove`、`admin gdpr delete <user_id>`），機器人啟動時終端機會印出完整說明。
+連結檢查關鍵字黑名單管理、GDPR 稽核紀錄刪除與已知詐騙圖片雜湊資料庫不透過 Discord 指令開放，而是機器人擁有者在執行機器人的終端機輸入文字指令操作（`admin keyword list/add/remove`、`admin gdpr delete <user_id>`、`admin scamimage list/add/remove/sync`），機器人啟動時終端機會印出完整說明。
 
 ## 多語言
 

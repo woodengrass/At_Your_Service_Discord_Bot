@@ -134,6 +134,16 @@ async def init_db() -> None:
         """
     )
 
+    await _connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS scam_image_hashes (
+            phash TEXT PRIMARY KEY,
+            label TEXT,
+            added_at TEXT NOT NULL
+        )
+        """
+    )
+
     await _connection.commit()
 
 

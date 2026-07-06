@@ -1,4 +1,5 @@
-﻿import datetime
+﻿import asyncio
+import datetime
 import io  # 使用記憶體串流，不寫入硬碟
 import logging
 
@@ -8,8 +9,8 @@ from discord.app_commands import locale_str
 from discord.ext import commands
 from discord.ui import View
 
-from features.tickets.repository import TicketStore
 from core.i18n import i18n
+from features.tickets.repository import TicketStore
 
 logger = logging.getLogger(__name__)
 
@@ -269,11 +270,86 @@ class TicketOpenButton(View):
 
 class TicketSystem(commands.Cog):
     """
-    監聽頻道刪除與訊息刪除事件，自動清理已失效的客服單與面板紀錄。
+    監聽頻道刪除與訊息刪除事件，自動清理已失效的客服單與面板紀錄，
+    並在載入時註冊客服單相關的持久化 View。
     """
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+
+    async def cog_load(self) -> None:
+        """
+        Cog 載入時向 core.lifecycle 註冊定期清理函式，並註冊客服單相關的持久化 View。
+        此時尚未連上 Discord 閘道，但 add_view() 不需要即時的 guild/channel 快取，
+        且 TicketStore 的快取已在 bot.py 的 setup_hook() 載入完成，可以安全註冊。
+        """
+        from core import lifecycle
+        lifecycle.register_cleanup_handler(self._cleanup_stale_tickets)
+        self._register_persistent_views()
+
+    def _register_persistent_views(self) -> None:
+        """
+        註冊客服單控制面板與既有開單面板的持久化 View，確保機器人重啟後按鈕仍可互動。
+        """
+        # 全域註冊 TicketControlView (關閉/刪除/紀錄按鈕)
+        # 因為已經優化為無狀態 View，只需要註冊一次即可適用所有舊的客服單
+        self.bot.add_view(TicketControlView())
+
+        # 註冊 Ticket Panels (開單按鈕)，每個面板可能有不同的 reason，需要個別註冊
+        ticket_data = TicketStore.data
+        registered_count = 0
+
+        for guild_id, guild_ticket_info in ticket_data.items():
+            for panel in guild_ticket_info.get("panels", []):
+                try:
+                    view = TicketOpenButton(self.bot, panel.get("reason", "開單"), int(guild_id))
+                    self.bot.add_view(view)
+                    registered_count += 1
+                except Exception as e:
+                    logger.error(f"註冊 TicketPanel 失敗：{e}", exc_info=True)
+
+        print(f"[資訊] 已註冊客服單控制面板，以及 {registered_count} 個開單面板的持久化視圖。")
+
+    async def _cleanup_stale_tickets(self) -> None:
+        """
+        定期檢查並清除已失效的開單面板與客服單紀錄（例如頻道或訊息已被刪除）。
+        """
+        ticket_data = TicketStore.data
+        ticket_changed = False
+
+        for guild_id, guild_ticket_info in list(ticket_data.items()):
+            guild = self.bot.get_guild(int(guild_id))
+            if not guild:
+                ticket_changed = await TicketStore.remove_guild(int(guild_id)) or ticket_changed
+                continue
+
+            # 清理開單面板 (Panels)
+            for panel in guild_ticket_info.get("panels", [])[:]:
+                channel = self.bot.get_channel(panel["channel_id"])
+                if not channel:
+                    panel_removed = await TicketStore.remove_panel(int(guild_id), panel["message_id"])
+                    ticket_changed = panel_removed or ticket_changed
+                    continue
+                try:
+                    await channel.fetch_message(panel["message_id"])
+                except discord.NotFound:
+                    panel_removed = await TicketStore.remove_panel(int(guild_id), panel["message_id"])
+                    ticket_changed = panel_removed or ticket_changed
+                except Exception as e:
+                    logger.warning(f"檢查 Ticket Panel 訊息時發生錯誤，先保留：{e}")
+                await asyncio.sleep(0.1)
+
+            # 清理已開啟的客服單 (Tickets)
+            # 只要檢查頻道還在不在即可，訊息不見沒關係 (反正 View 是全域的)
+            for ticket in guild_ticket_info.get("tickets", [])[:]:
+                channel = self.bot.get_channel(ticket["channel_id"])
+                if not channel:
+                    # 頻道已刪除，視為結案移除
+                    ticket_removed = await TicketStore.remove_ticket(int(guild_id), ticket["channel_id"])
+                    ticket_changed = ticket_removed or ticket_changed
+
+        if ticket_changed:
+            print("[背景任務] 已清理無效的 Ticket 紀錄。")
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:

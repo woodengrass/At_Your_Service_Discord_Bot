@@ -760,14 +760,24 @@
       "en-US": "Auto-detect and flag link safety"
     },
     "link_checker_dashboard": {
-      "zh-TW": " **連結檢查設定**\n開啟後，機器人將會對發送的連結進行初步掃描。\n安全連結：\n危險連結： + 警告訊息",
-      "zh-CN": " **链接检查设定**\n开启后，机器人将会对发送的链接进行初步扫描。\n安全链接：\n危险链接： + 警告信息",
-      "en-US": " **Link Checker Settings**\nWhen enabled, the bot will scan sent links.\nSafe: \nUnsafe:  + Warning"
+      "zh-TW": " **連結檢查設定**\n開啟後，機器人將會對發送的連結進行初步掃描。\n安全連結：\n危險連結： + 警告訊息\n\nQR code 網址檢查：解出圖片中的 QR code 網址並比照上述連結檢查流程。\n詐騙圖片比對：命中已知詐騙圖片時，直接刪除訊息、禁言使用者並通知管理員。",
+      "zh-CN": " **链接检查设定**\n开启后，机器人将会对发送的链接进行初步扫描。\n安全链接：\n危险链接： + 警告信息\n\nQR code 链接检查：解出图片中的 QR code 链接并比照上述链接检查流程。\n诈骗图片比对：命中已知诈骗图片时，直接删除消息、禁言用户并通知管理员。",
+      "en-US": " **Link Checker Settings**\nWhen enabled, the bot will scan sent links.\nSafe: \nUnsafe:  + Warning\n\nQR Code URL Check: decodes QR codes in images and runs the URL through the same check above.\nScam Image Matching: on a match, deletes the message, times out the user, and notifies admins."
     },
     "link_checker_enable": {
       "zh-TW": "啟用檢查",
       "zh-CN": "启用检查",
       "en-US": "Enable Checker"
+    },
+    "link_checker_qr": {
+      "zh-TW": "QR code 網址檢查",
+      "zh-CN": "QR code 链接检查",
+      "en-US": "QR Code URL Check"
+    },
+    "link_checker_image_hash": {
+      "zh-TW": "詐騙圖片比對",
+      "zh-CN": "诈骗图片比对",
+      "en-US": "Scam Image Matching"
     },
     "anti_raid": {
       "zh-TW": "防炸群偵測",
@@ -1840,6 +1850,21 @@
       "zh-TW": " **警告**：此連結被偵測為潛在的不安全連結！請勿隨意點擊。\n連結：`{url}`",
       "zh-CN": " **警告**：此链接被检测为潜在的不安全链接！请勿随意点击。\n链接：`{url}`",
       "en-US": " **WARNING**: This link is flagged as potentially unsafe! Do not click.\nLink: `{url}`"
+    },
+    "image_scam_warning": {
+      "zh-TW": " **警告**：此圖片與已知的詐騙圖片相符，訊息已刪除，請提高警覺。",
+      "zh-CN": " **警告**：此图片与已知的诈骗图片相符，消息已删除，请提高警惕。",
+      "en-US": " **WARNING**: This image matches a known scam image. The message has been removed."
+    },
+    "image_scam_timeout_reason": {
+      "zh-TW": "傳送已確認的詐騙圖片",
+      "zh-CN": "发送已确认的诈骗图片",
+      "en-US": "Sent a confirmed scam image"
+    },
+    "image_scam_detected_log": {
+      "zh-TW": " **偵測到詐騙圖片**\n使用者：{user}\n頻道：{channel}\n比對標籤：{label}\n已刪除該則訊息並禁言使用者，請管理員留意後續。",
+      "zh-CN": " **检测到诈骗图片**\n用户：{user}\n频道：{channel}\n比对标签：{label}\n已删除该则消息并禁言用户，请管理员留意后续。",
+      "en-US": " **Scam Image Detected**\nUser: {user}\nChannel: {channel}\nMatched Label: {label}\nThe message was deleted and the user timed out. Admins should follow up."
     },
     "welcome_panel_title": {
       "zh-TW": " 歡迎系統配置面板",

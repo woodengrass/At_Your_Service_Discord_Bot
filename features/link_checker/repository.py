@@ -1,4 +1,5 @@
-﻿import logging
+﻿import datetime
+import logging
 
 import aiosqlite
 
@@ -81,4 +82,56 @@ async def seed_default_keywords_if_empty() -> None:
     )
     await db.commit()
     print(f"[資訊] 已匯入 {len(DEFAULT_KEYWORDS)} 筆預設可疑關鍵字到資料庫。")
+
+
+async def get_all_scam_hashes() -> list[tuple[str, str]]:
+    """
+    取得目前所有已知詐騙圖片的感知雜湊值與標籤。
+
+    Returns:
+        list of (phash, label) tuple
+    """
+    db = get_db()
+    async with db.execute("SELECT phash, label FROM scam_image_hashes") as cursor:
+        rows = await cursor.fetchall()
+    return [(row[0], row[1]) for row in rows]
+
+
+async def add_scam_hash(phash: str, label: str) -> bool:
+    """
+    新增一筆已知詐騙圖片的感知雜湊值。
+
+    Args:
+        phash: 圖片的感知雜湊值（十六進位字串）
+        label: 用於辨識來源的標籤（例如檔名）
+
+    Returns:
+        True 表示成功新增；若雜湊值已存在則回傳 False
+    """
+    db = get_db()
+    try:
+        await db.execute(
+            "INSERT INTO scam_image_hashes (phash, label, added_at) VALUES (?, ?, ?)",
+            (phash, label, datetime.datetime.now(datetime.timezone.utc).isoformat())
+        )
+        await db.commit()
+        return True
+    except aiosqlite.IntegrityError:
+        return False
+
+
+async def remove_scam_hash(phash: str) -> bool:
+    """
+    移除一筆已知詐騙圖片的感知雜湊值。
+
+    Args:
+        phash: 圖片的感知雜湊值（十六進位字串）
+
+    Returns:
+        True 表示成功移除；若原本就不存在則回傳 False
+    """
+    db = get_db()
+    cursor = await db.execute("DELETE FROM scam_image_hashes WHERE phash = ?", (phash,))
+    await db.commit()
+    return cursor.rowcount > 0
 

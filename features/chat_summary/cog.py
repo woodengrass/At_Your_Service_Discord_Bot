@@ -1,5 +1,4 @@
 ﻿import asyncio
-import datetime
 import logging
 import os
 
@@ -8,6 +7,7 @@ from discord.ext import commands
 from groq import Groq
 
 from core.config import CONFIG
+from core.discord_output import send_ai_text_result
 from core.i18n import i18n
 
 logger = logging.getLogger(__name__)
@@ -111,8 +111,10 @@ class ChatSummary(commands.Cog):
                 f"請使用 {lang_prompt} 輸出，並嚴格遵循以下邏輯：\n\n"
                 f"### 核心規則\n"
                 f"1. **標題格式**：開頭必須寫「# 此對話流程摘要如下：」。\n"
-                f"2. **機器人過濾**：用戶「隨叫隨到#2091」是系統機器人，請**完全忽略**它的所有發言，不要將其計入摘要，也不須告訴用戶你忽略的此機器人。\n"
-                f"3. **客觀陳述**：你僅負責總結紀錄中「實際發生」的對話。若對話中未提及解決方案，請勿自行腦補或嘗試解決問題。\n\n"
+                f"2. **機器人過濾**：用戶「隨叫隨到#2091」是系統機器人，請**完全忽略**它的所有發言，"
+                f"不要將其計入摘要，也不須告訴用戶你忽略的此機器人。\n"
+                f"3. **客觀陳述**：你僅負責總結紀錄中「實際發生」的對話。若對話中未提及解決方案，"
+                f"請勿自行腦補或嘗試解決問題。\n\n"
                 f"### 內容分析指南\n"
                 f"1. **層級化結構 (重要)**：\n"
                 f"   - 針對長時間的對話，請識別出 **「主要討論主題」** 作為一級標題。\n"
@@ -121,7 +123,9 @@ class ChatSummary(commands.Cog):
                 f"   - 詳細描述討論的起因、核心爭議點、技術限制（如 gt 時序、紅石元件特性等）。\n"
                 f"   - **明確標註觀點持有者**：例如「用戶 A 提出...但用戶 B 反駁...」。\n"
                 f"3. **語氣識別**：\n"
-                f"   - 請具備識別「開玩笑」、「諷刺」或「梗圖互動」的能力。若某段對話純屬娛樂（如玩梗、互相吐槽），請將其歸類為「閒聊」並簡略帶過，不要誤將其當作嚴肅的技術建議。\n\n"
+                f"   - 請具備識別「開玩笑」、「諷刺」或「梗圖互動」的能力。"
+                f"若某段對話純屬娛樂（如玩梗、互相吐槽），請將其歸類為「閒聊」並簡略帶過，"
+                f"不要誤將其當作嚴肅的技術建議。\n\n"
                 f"### 輸出範例格式\n"
                 f"**1. [主要主題名稱]**\n"
                 f"   - **討論起源**：[用戶名] 詢問了關於...\n"
@@ -140,7 +144,10 @@ class ChatSummary(commands.Cog):
                 messages=[
                     {
                         "role": "system",
-                        "content": f"You are a helpful assistant. Please summarize the chat log in {lang_prompt} using bullet points."
+                        "content": (
+                            "You are a helpful assistant. Please summarize the chat log in "
+                            f"{lang_prompt} using bullet points."
+                        ),
                     },
                     {
                         "role": "user",
@@ -151,14 +158,14 @@ class ChatSummary(commands.Cog):
             summary_text = completion.choices[0].message.content
 
             title = i18n.get_text("messages.summary_result_title", message.guild.id)
-            embed = discord.Embed(
-                title=title,
-                description=summary_text,
-                color=discord.Color.blue(),
-                timestamp=datetime.datetime.now()
+            await send_ai_text_result(
+                processing_message,
+                title,
+                summary_text,
+                f"Analyzed {len(chat_log)} messages | Powered by Groq {self.model}",
+                "chat-summary.txt",
+                discord.Color.blue(),
             )
-            embed.set_footer(text=f"Analyzed {len(chat_log)} messages | Powered by Groq {self.model}")
-            await processing_message.edit(content="", embed=embed)
 
         except Exception as e:
             logger.error(f"聊天摘要生成失敗：{e}", exc_info=True)

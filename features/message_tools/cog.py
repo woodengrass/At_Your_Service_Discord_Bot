@@ -1,6 +1,10 @@
+import asyncio
 import datetime
-import io
+import gzip
 import logging
+import os
+import shutil
+import tempfile
 
 import discord
 from discord import app_commands
@@ -11,9 +15,62 @@ from core.i18n import i18n
 
 logger = logging.getLogger(__name__)
 
+EXPORT_CHUNK_MAX_BYTES = 6_000_000
+EXPORT_PROGRESS_INTERVAL = 1000
+
 
 class MessageTools(commands.Cog):
     """提供訊息刪除、公告與聊天紀錄匯出指令。"""
+
+    def __init__(self) -> None:
+        self.export_lock = asyncio.Lock()
+
+    def _compress_export_file(self, source_path: str, compressed_path: str) -> None:
+        """
+        將單一聊天紀錄分片壓縮成 gzip，降低 Discord 上傳流量。
+
+        Args:
+            source_path: 未壓縮文字分片路徑
+            compressed_path: gzip 輸出路徑
+        """
+        with open(source_path, "rb") as source_file:
+            with gzip.open(compressed_path, "wb", compresslevel=6) as compressed_file:
+                shutil.copyfileobj(source_file, compressed_file, length=64 * 1024)
+
+    async def _send_export_chunk(
+        self,
+        interaction: discord.Interaction,
+        source_path: str,
+        chunk_index: int,
+    ) -> None:
+        """
+        壓縮並上傳一個聊天紀錄分片，上傳完成後立即刪除本地檔案。
+
+        Args:
+            interaction: 發起匯出的互動物件
+            source_path: 未壓縮文字分片路徑
+            chunk_index: 分片序號
+        """
+        compressed_path = f"{source_path}.gz"
+        await asyncio.to_thread(self._compress_export_file, source_path, compressed_path)
+        filename = f"chat_log_{interaction.channel.name}_{chunk_index:04d}.txt.gz"
+        chunk_message = i18n.get_text(
+            "messages.export_chunk", interaction.guild.id, index=chunk_index
+        )
+        discord_file = discord.File(compressed_path, filename=filename)
+        try:
+            await interaction.channel.send(
+                content=chunk_message,
+                file=discord_file,
+            )
+        finally:
+            discord_file.close()
+            for file_path in (source_path, compressed_path):
+                try:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                except OSError as error:
+                    logger.error(f"刪除聊天匯出暫存檔失敗：{error}", exc_info=True)
 
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.command(name="delete", description=locale_str("delete"))
@@ -76,49 +133,98 @@ class MessageTools(commands.Cog):
         hours: int = 1,
         limit: int = 5000,
     ) -> None:
-        """匯出目前頻道指定時間範圍內的聊天紀錄。"""
+        """以固定記憶體與磁碟用量，串流匯出目前頻道指定範圍內的聊天紀錄。"""
         await interaction.response.defer(ephemeral=True)
-        cutoff_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=hours)
-        content_list: list[str] = []
-        exported_count = 0
-        start_message = i18n.get_text("messages.export_start", interaction.guild.id, hours=hours)
-        await interaction.followup.send(start_message, ephemeral=True)
-
-        try:
-            async for message in interaction.channel.history(limit=limit):
-                if message.created_at < cutoff_time:
-                    break
-                timestamp = message.created_at.astimezone().strftime("%Y-%m-%d %H:%M:%S")
-                content = message.content or i18n.get_text("messages.export_attachment", interaction.guild.id)
-                content_list.append(f"[{timestamp}] {message.author.display_name}: {content}")
-                exported_count += 1
-                if exported_count % 100 == 0:
-                    progress_message = i18n.get_text(
-                        "messages.export_progress", interaction.guild.id, count=exported_count
-                    )
-                    await interaction.edit_original_response(content=progress_message)
-
-            if not content_list:
-                no_message_text = i18n.get_text("messages.export_no_msg", interaction.guild.id, hours=hours)
-                await interaction.edit_original_response(content=no_message_text)
-                return
-
-            content_list.reverse()
-            file_data = io.BytesIO("\n".join(content_list).encode("utf-8"))
-            discord_file = discord.File(file_data, filename=f"chat_log_{interaction.channel.name}.txt")
-            public_message = i18n.get_text(
-                "messages.export_done_public",
-                interaction.guild.id,
-                channel=interaction.channel.mention,
-                count=len(content_list),
+        if hours < 0 or limit < 0:
+            await interaction.edit_original_response(
+                content=i18n.get_text("messages.export_invalid_range", interaction.guild.id)
             )
-            await interaction.channel.send(content=public_message, file=discord_file)
-            done_message = i18n.get_text("messages.export_done_private", interaction.guild.id)
-            await interaction.edit_original_response(content=done_message)
-        except (discord.Forbidden, discord.HTTPException) as error:
-            logger.error(f"匯出聊天紀錄失敗：{error}", exc_info=True)
-            error_message = i18n.get_text("messages.error_unknown", interaction.guild.id)
-            await interaction.edit_original_response(content=error_message)
+            return
+        if self.export_lock.locked():
+            await interaction.edit_original_response(
+                content=i18n.get_text("messages.export_busy", interaction.guild.id)
+            )
+            return
+
+        start_key = "messages.export_start_all" if hours == 0 else "messages.export_start"
+        start_message = i18n.get_text(start_key, interaction.guild.id, hours=hours)
+        await interaction.edit_original_response(content=start_message)
+
+        async with self.export_lock:
+            exported_count = 0
+            chunk_index = 1
+            cutoff_time = None
+            if hours > 0:
+                cutoff_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=hours)
+            history_limit = None if limit == 0 else limit
+            history_options = {"limit": history_limit, "oldest_first": True}
+            if cutoff_time is not None:
+                history_options["after"] = cutoff_time
+
+            try:
+                with tempfile.TemporaryDirectory(prefix="discord-chat-export-") as temp_directory:
+                    source_path = os.path.join(temp_directory, f"chunk-{chunk_index:04d}.txt")
+                    source_file = open(source_path, "wb")
+                    chunk_bytes = 0
+                    try:
+                        async for history_message in interaction.channel.history(**history_options):
+                            timestamp = history_message.created_at.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+                            content = history_message.content or i18n.get_text(
+                                "messages.export_attachment", interaction.guild.id
+                            )
+                            line = (
+                                f"[{timestamp}] {history_message.author.display_name}: {content}\n"
+                            ).encode("utf-8")
+                            if chunk_bytes and chunk_bytes + len(line) > EXPORT_CHUNK_MAX_BYTES:
+                                source_file.close()
+                                await self._send_export_chunk(interaction, source_path, chunk_index)
+                                chunk_index += 1
+                                source_path = os.path.join(
+                                    temp_directory, f"chunk-{chunk_index:04d}.txt"
+                                )
+                                source_file = open(source_path, "wb")
+                                chunk_bytes = 0
+                            source_file.write(line)
+                            chunk_bytes += len(line)
+                            exported_count += 1
+
+                            if exported_count % EXPORT_PROGRESS_INTERVAL == 0:
+                                progress_message = i18n.get_text(
+                                    "messages.export_progress",
+                                    interaction.guild.id,
+                                    count=exported_count,
+                                )
+                                try:
+                                    await interaction.edit_original_response(content=progress_message)
+                                except discord.HTTPException as error:
+                                    logger.warning("更新聊天匯出進度失敗：%s", error)
+                    finally:
+                        if not source_file.closed:
+                            source_file.close()
+
+                    if chunk_bytes:
+                        await self._send_export_chunk(interaction, source_path, chunk_index)
+
+                if exported_count == 0:
+                    no_message_key = "messages.export_no_msg_all" if hours == 0 else "messages.export_no_msg"
+                    no_message_text = i18n.get_text(
+                        no_message_key, interaction.guild.id, hours=hours
+                    )
+                    await interaction.edit_original_response(content=no_message_text)
+                    return
+
+                done_message = i18n.get_text("messages.export_done_private", interaction.guild.id)
+                try:
+                    await interaction.edit_original_response(content=done_message)
+                except discord.HTTPException as error:
+                    logger.warning("更新聊天匯出完成狀態失敗：%s", error)
+            except Exception as error:
+                logger.error(f"匯出聊天紀錄失敗：{error}", exc_info=True)
+                error_message = i18n.get_text("messages.error_unknown", interaction.guild.id)
+                try:
+                    await interaction.edit_original_response(content=error_message)
+                except discord.HTTPException as response_error:
+                    logger.error(f"回覆聊天匯出失敗訊息失敗：{response_error}", exc_info=True)
 
 
 async def setup(bot: commands.Bot) -> None:

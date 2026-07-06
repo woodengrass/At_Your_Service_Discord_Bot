@@ -9,7 +9,9 @@
   "ai_settings": {
     "chat_summary_model": "llama-3.3-70b-versatile",
     "voice_transcribe_model": "whisper-large-v3",
-    "chat_history_limit": 1000
+    "chat_history_limit": 1000,
+    "voice_max_file_bytes": 20971520,
+    "voice_max_concurrency": 2
   },
   "people_counting": {
     "update_interval_minutes": 10

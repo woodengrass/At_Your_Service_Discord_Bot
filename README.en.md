@@ -40,6 +40,7 @@ A multifunctional Discord bot built with Python 3.11 and discord.py. It combines
 - Anti-raid detection for a burst of member joins within a short time window.
 - New-member verification: passive risk scoring plus button verification, with high-risk members routed to a private human-review channel. Enabling the feature can grandfather in existing members and lock channel send permissions in one confirmed action.
 - Malicious URL checks through the Google Safe Browsing API and a customizable keyword blocklist.
+- Image-based scam detection: perceptual-hash matching against a known-scam-image database, plus QR code decoding on image attachments (any URL found is routed through the same URL-safety check).
 - User allowlists and Discord moderation notifications.
 - Important protection events and outcomes are written to a database audit log and rotating local logs.
 
@@ -155,7 +156,7 @@ The bot loads all cogs and synchronizes global slash commands at startup. Discor
 
 The new-member verification system has no dedicated command; it is configured and enabled from the menu inside `/anti_fraud_setting`.
 
-Link-checker keyword blocklist management and GDPR audit-log deletion are not exposed as Discord commands. They're operated by the bot owner typing commands directly into the terminal running the bot (`admin keyword list/add/remove`, `admin gdpr delete <user_id>`); the terminal prints full usage on startup.
+Link-checker keyword blocklist management, GDPR audit-log deletion, and the known-scam-image hash database are not exposed as Discord commands. They're operated by the bot owner typing commands directly into the terminal running the bot (`admin keyword list/add/remove`, `admin gdpr delete <user_id>`, `admin scamimage list/add/remove/sync`); the terminal prints full usage on startup.
 
 ## Localization
 

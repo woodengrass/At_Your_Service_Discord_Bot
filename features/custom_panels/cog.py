@@ -7,9 +7,9 @@ from discord.app_commands import locale_str
 from discord.ext import commands
 from discord.ui import Button, Modal, TextInput, View
 
-from features.custom_panels.repository import CustomPanelStore
-from features.custom_panels.panel import CustomPanelEditorView
 from core.i18n import i18n
+from features.custom_panels.panel import CustomPanelEditorView
+from features.custom_panels.repository import CustomPanelStore
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +137,61 @@ class CustomPanelSystem(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+
+    async def cog_load(self) -> None:
+        """
+        Cog 載入時向 core.lifecycle 註冊定期清理函式，並註冊既有自訂面板的持久化 View。
+        此時尚未連上 Discord 閘道，但 add_view() 不需要即時的 guild/channel 快取，
+        且 CustomPanelStore 的快取已在 bot.py 的 setup_hook() 載入完成，可以安全註冊。
+        """
+        from core import lifecycle
+        lifecycle.register_cleanup_handler(self._cleanup_stale_panels)
+        self._register_persistent_views()
+
+    def _register_persistent_views(self) -> None:
+        """
+        將既有自訂面板重新註冊為持久化 View，確保機器人重啟後按鈕仍可互動。
+        """
+        panel_data = CustomPanelStore.data
+        registered_count = 0
+        all_custom_panels = panel_data.get("panels", {})
+
+        for message_id, panel_config in all_custom_panels.items():
+            try:
+                view = CustomPanelView(self.bot, panel_config)
+                self.bot.add_view(view)
+                registered_count += 1
+            except Exception as e:
+                logger.error(f"註冊 CustomPanel {message_id} 失敗：{e}", exc_info=True)
+
+        print(f"[資訊] 已註冊 {registered_count} 個自訂面板的持久化視圖。")
+
+    async def _cleanup_stale_panels(self) -> None:
+        """
+        定期檢查並清除已失效的自訂面板紀錄（例如頻道或訊息已被刪除）。
+        """
+        panel_data = CustomPanelStore.data
+        panel_changed = False
+        all_custom_panels = panel_data.get("panels", {})
+
+        for message_id_str in list(all_custom_panels.keys()):
+            panel_config = all_custom_panels[message_id_str]
+            channel_id = panel_config.get("channel_id")
+            channel = self.bot.get_channel(channel_id)
+
+            if not channel:
+                panel_changed = await CustomPanelStore.remove_panel(int(message_id_str)) or panel_changed
+                continue
+
+            try:
+                await channel.fetch_message(int(message_id_str))
+            except discord.NotFound:
+                panel_changed = await CustomPanelStore.remove_panel(int(message_id_str)) or panel_changed
+            except (discord.Forbidden, discord.HTTPException) as e:
+                logger.warning(f"檢查 Custom Panel 訊息時發生網路問題，先保留：{e}")
+
+        if panel_changed:
+            print("[背景任務] 已清理無效的 Custom Panel 紀錄。")
 
     # --- 1. 面板按鈕點擊處理 ---
     async def handle_panel_click(self, interaction: discord.Interaction, config: dict) -> None:

@@ -23,5 +23,8 @@
   "verification": {
     "new_account_days": 7,
     "risk_threshold": 2
+  },
+  "link_checker": {
+    "image_scam_timeout_hours": 240
   }
 }

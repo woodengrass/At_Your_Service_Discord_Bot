@@ -141,7 +141,7 @@ class AntiFraudComponentView(discord.ui.View):
         self.parent_view = parent_view
         self.add_item(item)
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id),
+            label=i18n.get_text("ui.back", guild_id),
             style=discord.ButtonStyle.secondary,
         )
         back_button.callback = self.back_to_menu
@@ -158,12 +158,12 @@ class WhitelistMenuSelect(discord.ui.Select):
     def __init__(self, guild_id: int) -> None:
         self.guild_id = guild_id
         options = [
-            discord.SelectOption(label=i18n.get_text("ui.opt_view_whitelist", guild_id), value="view"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_add_whitelist", guild_id), value="add"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_remove_whitelist", guild_id), value="remove"),
-            discord.SelectOption(label=i18n.get_text("ui.btn_back", guild_id), value="back")
+            discord.SelectOption(label=i18n.get_text("ui.view_whitelist", guild_id), value="view"),
+            discord.SelectOption(label=i18n.get_text("ui.add_whitelist", guild_id), value="add"),
+            discord.SelectOption(label=i18n.get_text("ui.remove_whitelist", guild_id), value="remove"),
+            discord.SelectOption(label=i18n.get_text("ui.back", guild_id), value="back")
         ]
-        super().__init__(placeholder=i18n.get_text("ui.placeholder_whitelist_menu", guild_id), options=options)
+        super().__init__(placeholder=i18n.get_text("ui.whitelist_menu", guild_id), options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         selected_value = self.values[0]
@@ -217,16 +217,16 @@ class AntiFraudSelect(discord.ui.Select):
     def __init__(self, guild_id: int) -> None:
         self.guild_id = guild_id
         options = [
-            discord.SelectOption(label=i18n.get_text("ui.opt_manage_honeypot", guild_id), value="honeypot",
+            discord.SelectOption(label=i18n.get_text("ui.manage_honeypot", guild_id), value="honeypot",
                                  description=i18n.get_text("ui.desc_manage_honeypot", guild_id)),
-            discord.SelectOption(label=i18n.get_text("ui.opt_toggle_anti_spam", guild_id), value="spam"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_manage_whitelist", guild_id), value="whitelist",
+            discord.SelectOption(label=i18n.get_text("ui.toggle_anti_spam", guild_id), value="spam"),
+            discord.SelectOption(label=i18n.get_text("ui.manage_whitelist", guild_id), value="whitelist",
                                  description=i18n.get_text("ui.desc_manage_whitelist", guild_id)),
-            discord.SelectOption(label=i18n.get_text("ui.opt_link_checker", guild_id), value="link_checker",
+            discord.SelectOption(label=i18n.get_text("ui.link_checker", guild_id), value="link_checker",
                                  description=i18n.get_text("ui.desc_link_checker", guild_id)),
-            discord.SelectOption(label=i18n.get_text("ui.opt_anti_raid", guild_id), value="anti_raid",
+            discord.SelectOption(label=i18n.get_text("ui.anti_raid", guild_id), value="anti_raid",
                                  description=i18n.get_text("ui.desc_anti_raid", guild_id)),
-            discord.SelectOption(label=i18n.get_text("ui.opt_manage_verification", guild_id), value="verification",
+            discord.SelectOption(label=i18n.get_text("ui.manage_verification", guild_id), value="verification",
                                  description=i18n.get_text("ui.desc_manage_verification", guild_id)),
         ]
         super().__init__(placeholder=i18n.get_text("ui.placeholder", guild_id), options=options)
@@ -239,7 +239,7 @@ class AntiFraudSelect(discord.ui.Select):
                 view=HoneypotSettingView(self.guild_id))
         elif selected_value == "spam":
             view = AntiSpamToggleView(self.guild_id)
-            embed = discord.Embed(description=i18n.get_text("ui.msg_spam_dashboard", self.guild_id),
+            embed = discord.Embed(description=i18n.get_text("ui.spam_dashboard", self.guild_id),
                                   color=discord.Color.blue())
             await interaction.response.edit_message(content=None, embed=embed, view=view)
         elif selected_value == "whitelist":
@@ -248,12 +248,12 @@ class AntiFraudSelect(discord.ui.Select):
                 view=WhitelistSettingView(self.guild_id))
         elif selected_value == "link_checker":
             view = LinkCheckerToggleView(self.guild_id)
-            embed = discord.Embed(description=i18n.get_text("ui.msg_link_checker_dashboard", self.guild_id),
+            embed = discord.Embed(description=i18n.get_text("ui.link_checker_dashboard", self.guild_id),
                                   color=discord.Color.blue())
             await interaction.response.edit_message(content=None, embed=embed, view=view)
         elif selected_value == "anti_raid":
             view = AntiRaidToggleView(self.guild_id)
-            embed = discord.Embed(description=i18n.get_text("ui.msg_anti_raid_dashboard", self.guild_id),
+            embed = discord.Embed(description=i18n.get_text("ui.anti_raid_dashboard", self.guild_id),
                                   color=discord.Color.blue())
             await interaction.response.edit_message(content=None, embed=embed, view=view)
         elif selected_value == "verification":

@@ -25,7 +25,7 @@ class AntiRaidToggleView(discord.ui.View):
 
         style = discord.ButtonStyle.success if is_enabled else discord.ButtonStyle.danger
         state_text = i18n.get_text("ui.state_on" if is_enabled else "ui.state_off", self.guild_id)
-        label = f"{i18n.get_text('ui.btn_anti_raid_enable', self.guild_id)}: {state_text}"
+        label = f"{i18n.get_text('ui.anti_raid_enable', self.guild_id)}: {state_text}"
 
         button = discord.ui.Button(label=label, style=style)
 
@@ -34,7 +34,7 @@ class AntiRaidToggleView(discord.ui.View):
             await GuildSettings.set_module_config(self.guild_id, "anti_raid", "enabled", new_state)
             self.update_button()
             await interaction.response.edit_message(view=self)
-            feature = i18n.get_text("ui.btn_anti_raid_enable", self.guild_id)
+            feature = i18n.get_text("ui.anti_raid_enable", self.guild_id)
             status = i18n.get_text("ui.state_on" if new_state else "ui.state_off", self.guild_id)
             await interaction.followup.send(
                 i18n.get_text("messages.setting_status_updated", self.guild_id, feature=feature, status=status),
@@ -44,7 +44,7 @@ class AntiRaidToggleView(discord.ui.View):
         button.callback = callback
         self.add_item(button)
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", self.guild_id),
+            label=i18n.get_text("ui.back", self.guild_id),
             style=discord.ButtonStyle.secondary,
         )
         back_button.callback = self.back_to_main

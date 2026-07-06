@@ -20,7 +20,7 @@ class TriggerAddModal(Modal):
 
         self.trigger_input = TextInput(
             label=truncate_text(i18n.get_text("ui.input_trigger", guild_id), TEXT_INPUT_LABEL_MAX_LENGTH),
-            placeholder=i18n.get_text("ui.placeholder_trigger_word", guild_id),
+            placeholder=i18n.get_text("ui.trigger_word", guild_id),
             min_length=1,
             max_length=50
         )
@@ -28,7 +28,7 @@ class TriggerAddModal(Modal):
         # 提示文字，告知使用者可用變數
         self.response_input = TextInput(
             label=truncate_text(i18n.get_text("ui.input_response", guild_id), TEXT_INPUT_LABEL_MAX_LENGTH),
-            placeholder=i18n.get_text("ui.placeholder_trigger_response", guild_id),
+            placeholder=i18n.get_text("ui.trigger_response", guild_id),
             style=discord.TextStyle.paragraph,
             min_length=1,
             max_length=1000
@@ -36,7 +36,7 @@ class TriggerAddModal(Modal):
 
         self.wildcard_input = TextInput(
             label=truncate_text(i18n.get_text("ui.input_wildcard", guild_id), TEXT_INPUT_LABEL_MAX_LENGTH),
-            placeholder=i18n.get_text("ui.placeholder_trigger_wildcard", guild_id),
+            placeholder=i18n.get_text("ui.trigger_wildcard", guild_id),
             min_length=1,
             max_length=5,
             required=False
@@ -142,7 +142,7 @@ class TriggerDeleteView(discord.ui.View):
         super().__init__(timeout=PANEL_TIMEOUT_SECONDS)
 
         if not triggers:
-            button_label = i18n.get_text("ui.btn_no_trigger_delete", guild_id)
+            button_label = i18n.get_text("ui.no_trigger_delete", guild_id)
             self.add_item(discord.ui.Button(label=button_label, disabled=True))
         else:
             options = []
@@ -162,7 +162,7 @@ class TriggerDeleteView(discord.ui.View):
             self.add_item(TriggerDeleteSelect(guild_id, bot, options, parent_view))
 
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.back", guild_id), style=discord.ButtonStyle.secondary
         )
         back_button.callback = self.back_to_main
         self.add_item(back_button)
@@ -179,7 +179,7 @@ class TriggerListView(discord.ui.View):
         super().__init__(timeout=PANEL_TIMEOUT_SECONDS)
         self.parent_view = parent_view
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.back", guild_id), style=discord.ButtonStyle.secondary
         )
         back_button.callback = self.back_to_main
         self.add_item(back_button)
@@ -199,17 +199,21 @@ class TriggerSettingView(discord.ui.View):
         self.guild_id = guild_id
         self.bot = bot
 
+        label_keys = {
+            "btn_add_trigger": "ui.add_trigger",
+            "btn_del_trigger": "ui.del_trigger",
+            "btn_view_trigger": "ui.view_trigger",
+        }
         for item in self.children:
-            if isinstance(item, discord.ui.Button) and item.custom_id:
-                label_key = f"ui.{item.custom_id}"
-                item.label = i18n.get_text(label_key, guild_id)
+            if isinstance(item, discord.ui.Button) and item.custom_id in label_keys:
+                item.label = i18n.get_text(label_keys[item.custom_id], guild_id)
 
-    @discord.ui.button(label="新增觸發詞", style=discord.ButtonStyle.success, custom_id="btn_add_trigger")
+    @discord.ui.button(label=None, style=discord.ButtonStyle.success, custom_id="btn_add_trigger")
     async def add_trigger(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         modal = TriggerAddModal(self.guild_id, self.bot, self)
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label="刪除觸發詞", style=discord.ButtonStyle.danger, custom_id="btn_del_trigger")
+    @discord.ui.button(label=None, style=discord.ButtonStyle.danger, custom_id="btn_del_trigger")
     async def delete_trigger(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         triggers = await get_guild_triggers(self.guild_id)
         view = TriggerDeleteView(self.guild_id, self.bot, triggers, self)
@@ -218,7 +222,7 @@ class TriggerSettingView(discord.ui.View):
             "ui.select_trigger_delete", self.guild_id)
         await interaction.response.edit_message(content=prompt_message, embed=None, view=view)
 
-    @discord.ui.button(label="查看列表", style=discord.ButtonStyle.primary, custom_id="btn_view_trigger")
+    @discord.ui.button(label=None, style=discord.ButtonStyle.primary, custom_id="btn_view_trigger")
     async def view_triggers(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         triggers = await get_guild_triggers(self.guild_id)
 

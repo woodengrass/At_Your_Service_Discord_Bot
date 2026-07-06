@@ -86,9 +86,9 @@ class PanelPublishView(View):
 
         for item in self.children:
             if isinstance(item, discord.ui.Button):
-                item.label = i18n.get_text("ui.btn_back", editor_view.guild_id)
+                item.label = i18n.get_text("ui.back", editor_view.guild_id)
 
-    @discord.ui.button(label="Cancel / Back", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label=None, style=discord.ButtonStyle.secondary, row=1)
     async def cancel_callback(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         # 取消發布，回到主面板
         await self.editor_view.update_preview(interaction)
@@ -117,7 +117,7 @@ class ButtonConfigModal(Modal):
         )
         self.style_input = TextInput(
             label=truncate_text(i18n.get_text("ui.input_btn_style", guild_id), TEXT_INPUT_LABEL_MAX_LENGTH),
-            placeholder=i18n.get_text("ui.placeholder_btn_style", guild_id),
+            placeholder=i18n.get_text("ui.button_style", guild_id),
             required=False
         )
         self.add_item(self.label_input)
@@ -131,11 +131,11 @@ class ButtonConfigModal(Modal):
         elif button_type in [3, 4]:
             self.modal_title_input = TextInput(
                 label=truncate_text(i18n.get_text("ui.input_modal_title", guild_id), TEXT_INPUT_LABEL_MAX_LENGTH),
-                placeholder=i18n.get_text("ui.placeholder_form_title", guild_id)
+                placeholder=i18n.get_text("ui.form_title", guild_id)
             )
             self.input_label_input = TextInput(
                 label=truncate_text(i18n.get_text("ui.input_input_label", guild_id), TEXT_INPUT_LABEL_MAX_LENGTH),
-                placeholder=i18n.get_text("ui.placeholder_input_hint", guild_id)
+                placeholder=i18n.get_text("ui.input_hint", guild_id)
             )
             self.add_item(self.modal_title_input)
             self.add_item(self.input_label_input)
@@ -184,9 +184,9 @@ class ButtonDependencyView(View):
             self.add_item(self._create_channel_select(guild_id, "log_channel_id", "select_log_channel"))
             self.add_item(self._create_channel_select(guild_id, "notify_channel_id", "select_notify_channel"))
 
-        self.add_item(Button(label=i18n.get_text("ui.btn_next", guild_id), style=discord.ButtonStyle.primary,
+        self.add_item(Button(label=i18n.get_text("ui.next", guild_id), style=discord.ButtonStyle.primary,
                              row=4, custom_id="next_step"))
-        self.add_item(Button(label=i18n.get_text("ui.btn_cancel", guild_id), style=discord.ButtonStyle.secondary,
+        self.add_item(Button(label=i18n.get_text("ui.cancel", guild_id), style=discord.ButtonStyle.secondary,
                              row=4, custom_id="cancel_step"))
 
         for child in self.children:
@@ -258,10 +258,10 @@ class ButtonTypeSelect(Select):
         self.editor_view = editor_view
         guild_id = editor_view.guild_id
         options = [
-            discord.SelectOption(label=i18n.get_text("ui.opt_btn_role", guild_id), value="1"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_btn_hidden", guild_id), value="2"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_btn_form", guild_id), value="3"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_btn_verify", guild_id), value="4"),
+            discord.SelectOption(label=i18n.get_text("ui.button_role", guild_id), value="1"),
+            discord.SelectOption(label=i18n.get_text("ui.button_hidden", guild_id), value="2"),
+            discord.SelectOption(label=i18n.get_text("ui.button_form", guild_id), value="3"),
+            discord.SelectOption(label=i18n.get_text("ui.button_verify", guild_id), value="4"),
         ]
         super().__init__(placeholder=i18n.get_text("ui.select_btn_type", guild_id), options=options)
 
@@ -286,7 +286,7 @@ class ButtonTypeView(View):
         self.editor_view = editor_view
 
         cancel_button = Button(
-            label=i18n.get_text("ui.btn_cancel", editor_view.guild_id),
+            label=i18n.get_text("ui.cancel", editor_view.guild_id),
             style=discord.ButtonStyle.secondary,
             row=1,
         )
@@ -321,7 +321,7 @@ class PanelEmbedModal(Modal):
         self.input_image = TextInput(
             label=truncate_text(i18n.get_text("ui.input_image_url", guild_id), TEXT_INPUT_LABEL_MAX_LENGTH),
             required=False,
-            placeholder=i18n.get_text("ui.placeholder_thumbnail_url", guild_id)
+            placeholder=i18n.get_text("ui.thumbnail_url", guild_id)
         )
         self.add_item(self.input_title)
         self.add_item(self.input_desc)
@@ -364,11 +364,11 @@ class CustomPanelEditorView(View):
         建立編輯器主畫面的三個功能按鈕：編輯內容、新增按鈕、發布面板。
         """
         guild_id = self.guild_id
-        edit_embed_button = Button(label=i18n.get_text("ui.btn_edit_embed", guild_id), style=discord.ButtonStyle.primary)
+        edit_embed_button = Button(label=i18n.get_text("ui.edit_embed", guild_id), style=discord.ButtonStyle.primary)
         edit_embed_button.callback = self.edit_embed_callback
-        add_button_button = Button(label=i18n.get_text("ui.btn_add_button", guild_id), style=discord.ButtonStyle.success)
+        add_button_button = Button(label=i18n.get_text("ui.add_button", guild_id), style=discord.ButtonStyle.success)
         add_button_button.callback = self.add_button_callback
-        publish_button = Button(label=i18n.get_text("ui.btn_publish", guild_id), style=discord.ButtonStyle.success)
+        publish_button = Button(label=i18n.get_text("ui.publish", guild_id), style=discord.ButtonStyle.success)
         publish_button.callback = self.publish_callback
         self.add_item(edit_embed_button)
         self.add_item(add_button_button)

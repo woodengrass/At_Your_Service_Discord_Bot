@@ -51,7 +51,7 @@ class I18n(app_commands.Translator):
         """
         return GuildSettings.get_language(guild_id)
 
-    def get_text(self, key: str, guild_id: int, **kwargs) -> str:
+    def get_text(self, key: str, guild_id: int, **kwargs: object) -> str:
         """
         依照指定伺服器的語言設定，取得對應的文字內容。
 

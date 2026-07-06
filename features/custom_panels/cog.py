@@ -38,13 +38,13 @@ class VerifyControlView(View):
 
         self.add_item(Button(
             style=discord.ButtonStyle.green,
-            label=i18n.get_text("ui.btn_approve", guild_id),
+            label=i18n.get_text("ui.approve", guild_id),
             custom_id=f"v:ok:{safe_user_id}:{safe_role_id}:{safe_notify_channel_id}"
         ))
 
         self.add_item(Button(
             style=discord.ButtonStyle.red,
-            label=i18n.get_text("ui.btn_deny", guild_id),
+            label=i18n.get_text("ui.deny", guild_id),
             custom_id=f"v:no:{safe_user_id}:{safe_role_id}:{safe_notify_channel_id}"
         ))
 
@@ -97,7 +97,7 @@ class PanelButton(Button):
 
         super().__init__(
             style=style_map.get(button_config.get("style"), discord.ButtonStyle.gray),
-            label=button_config.get("label", i18n.get_text("ui.custom_panel_default_button", guild_id)),
+            label=button_config.get("label", i18n.get_text("messages.custom_panel_default_button", guild_id)),
             custom_id=button_id
         )
         self.bot = bot

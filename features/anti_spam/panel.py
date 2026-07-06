@@ -45,11 +45,11 @@ class AntiSpamToggleView(discord.ui.View):
         state_text = i18n.get_text(state_key, self.guild_id)
 
         if config_key == "master":
-            label_key = "ui.btn_spam_master"
+            label_key = "ui.spam_master"
         elif config_key == "multi":
-            label_key = "ui.btn_spam_multi"
+            label_key = "ui.spam_multi"
         else:
-            label_key = "ui.btn_spam_single"
+            label_key = "ui.spam_single"
 
         label = f"{i18n.get_text(label_key, self.guild_id)}: {state_text}"
         button = discord.ui.Button(label=label, style=style, custom_id=config_key)
@@ -72,7 +72,7 @@ class AntiSpamToggleView(discord.ui.View):
 
     def _add_back_button(self) -> None:
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", self.guild_id),
+            label=i18n.get_text("ui.back", self.guild_id),
             style=discord.ButtonStyle.secondary,
         )
         back_button.callback = self.back_to_main

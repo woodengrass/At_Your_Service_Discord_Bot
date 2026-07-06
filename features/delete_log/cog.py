@@ -47,11 +47,11 @@ class DeleteListener(commands.Cog):
             content = message.content
             if not content:
                 if message.attachments:
-                    content = i18n.get_text("messages.msg_attachment_only", guild_id)
+                    content = i18n.get_text("messages.attachment_only", guild_id)
                 elif message.stickers:
-                    content = i18n.get_text("messages.msg_sticker_only", guild_id)
+                    content = i18n.get_text("messages.sticker_only", guild_id)
                 else:
-                    content = i18n.get_text("messages.msg_empty", guild_id)
+                    content = i18n.get_text("messages.empty", guild_id)
 
             log_message = i18n.get_text(
                 "messages.delete_log", guild_id,

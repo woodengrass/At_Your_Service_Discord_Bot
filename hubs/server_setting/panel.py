@@ -23,7 +23,7 @@ def format_config_embed(guild_id: int, data: dict) -> discord.Embed:
         顯示目前設定內容的 Embed
     """
     embed = discord.Embed(
-        title=i18n.get_text("ui.opt_view_config", guild_id),
+        title=i18n.get_text("ui.view_config", guild_id),
         color=discord.Color.blue(),
     )
 
@@ -153,7 +153,7 @@ class ServerSettingSubView(discord.ui.View):
         self.parent_view = parent_view
         self.add_item(item)
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id),
+            label=i18n.get_text("ui.back", guild_id),
             style=discord.ButtonStyle.secondary,
         )
         back_button.callback = self.back_to_main
@@ -174,24 +174,24 @@ class ServerSettingSelect(discord.ui.Select):
 
         options = [
             discord.SelectOption(
-                label=i18n.get_text("ui.opt_view_config", guild_id),
-                description=i18n.get_text("ui.opt_desc_config", guild_id),
+                label=i18n.get_text("ui.view_config", guild_id),
+                description=i18n.get_text("ui.desc_config", guild_id),
                 value="view_config",
             ),
             discord.SelectOption(
-                label=i18n.get_text("ui.opt_set_people_count", guild_id),
+                label=i18n.get_text("ui.set_people_count", guild_id),
                 value="set_people_count",
             ),
             discord.SelectOption(
-                label=i18n.get_text("ui.opt_set_announcement", guild_id),
+                label=i18n.get_text("ui.set_announcement", guild_id),
                 value="set_announcement",
             ),
             discord.SelectOption(
-                label=i18n.get_text("ui.opt_toggle_delete_log", guild_id),
+                label=i18n.get_text("ui.toggle_delete_log", guild_id),
                 value="toggle_delete_log",
             ),
             discord.SelectOption(
-                label=i18n.get_text("ui.opt_set_language", guild_id),
+                label=i18n.get_text("ui.set_language", guild_id),
                 value="set_language",
             ),
         ]
@@ -244,7 +244,7 @@ class ServerSettingSelect(discord.ui.Select):
     async def _handle_toggle_delete_log(self, interaction: discord.Interaction) -> None:
         view = DeleteLogToggleView(self.guild_id, self.parent_view)
         await interaction.response.edit_message(
-            content=i18n.get_text("ui.msg_select_delete_log", self.guild_id),
+            content=i18n.get_text("ui.select_delete_log", self.guild_id),
             embed=None,
             view=view,
         )

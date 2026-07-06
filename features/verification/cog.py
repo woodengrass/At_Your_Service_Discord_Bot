@@ -35,12 +35,12 @@ class VerificationReviewView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(discord.ui.Button(
             style=discord.ButtonStyle.success,
-            label=i18n.get_text("ui.btn_approve", guild_id),
+            label=i18n.get_text("ui.approve", guild_id),
             custom_id=f"verify:approve:{user_id}"
         ))
         self.add_item(discord.ui.Button(
             style=discord.ButtonStyle.danger,
-            label=i18n.get_text("ui.btn_deny", guild_id),
+            label=i18n.get_text("ui.deny", guild_id),
             custom_id=f"verify:deny:{user_id}"
         ))
 
@@ -54,7 +54,7 @@ class VerificationButtonView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(discord.ui.Button(
             style=discord.ButtonStyle.success,
-            label=i18n.get_text("ui.btn_human_check", guild_id),
+            label=i18n.get_text("ui.human_check", guild_id),
             custom_id=HUMAN_CHECK_CUSTOM_ID
         ))
 

@@ -54,11 +54,15 @@ class TicketControlView(View):
     此 View 為無狀態設計，不需要傳入參數即可初始化，可套用於所有客服單。
     """
 
-    def __init__(self) -> None:
+    def __init__(self, guild_id: int = 0) -> None:
         super().__init__(timeout=None)
+        label_keys = ("ui.ticket_close", "ui.ticket_delete", "ui.ticket_transcript")
+        for item, label_key in zip(self.children, label_keys, strict=True):
+            if isinstance(item, discord.ui.Button):
+                item.label = i18n.get_text(label_key, guild_id)
 
     # 1. 關閉客服單
-    @discord.ui.button(label="Close", style=discord.ButtonStyle.secondary, custom_id="ticket_cmd:close")
+    @discord.ui.button(label=None, style=discord.ButtonStyle.secondary, custom_id="ticket_cmd:close")
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         # 權限檢查
         if not interaction.user.guild_permissions.administrator:
@@ -89,7 +93,7 @@ class TicketControlView(View):
         await interaction.message.edit(view=self)
 
     # 2. 刪除頻道
-    @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger, custom_id="ticket_cmd:delete")
+    @discord.ui.button(label=None, style=discord.ButtonStyle.danger, custom_id="ticket_cmd:delete")
     async def delete_ticket(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not interaction.user.guild_permissions.administrator:
             admin_only_message = i18n.get_text("messages.ticket_admin_only_delete", interaction.guild.id)
@@ -107,7 +111,7 @@ class TicketControlView(View):
             logger.info("客服單頻道已不存在，略過刪除。")
 
     # 3. 匯出紀錄 (Transcript)
-    @discord.ui.button(label="Transcript", style=discord.ButtonStyle.primary,
+    @discord.ui.button(label=None, style=discord.ButtonStyle.primary,
                        custom_id="ticket_cmd:transcript")
     async def export_transcript(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         """
@@ -186,8 +190,12 @@ class TicketOpenButton(View):
     def __init__(self, bot: commands.Bot, label_text: str, guild_id: int | None = None) -> None:
         super().__init__(timeout=None)
         self.label_text = label_text
+        language_guild_id = guild_id if guild_id is not None else 0
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.label = i18n.get_text("ui.ticket_create", language_guild_id)
 
-    @discord.ui.button(label="Create Ticket", style=discord.ButtonStyle.success, custom_id="open_ticket")
+    @discord.ui.button(label=None, style=discord.ButtonStyle.success, custom_id="open_ticket")
     async def open_ticket(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         guild = interaction.guild
 
@@ -235,7 +243,7 @@ class TicketOpenButton(View):
         # 使用無狀態的控制面板 View
         ticket_message = await ticket_channel.send(
             embed=embed,
-            view=TicketControlView()
+            view=TicketControlView(interaction.guild.id)
         )
         await ticket_message.pin()
 

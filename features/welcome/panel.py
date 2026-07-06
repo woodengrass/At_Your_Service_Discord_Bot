@@ -24,7 +24,7 @@ class WelcomeModal(discord.ui.Modal):
 
         self.title_input = discord.ui.TextInput(
             label=i18n.get_text("ui.input_welcome_title", guild_id)[:45],
-            placeholder=i18n.get_text("ui.placeholder_welcome_title", guild_id),
+            placeholder=i18n.get_text("ui.welcome_title", guild_id),
             default=config.get("title", ""),
             required=False, max_length=256
         )
@@ -33,7 +33,7 @@ class WelcomeModal(discord.ui.Modal):
         self.desc_input = discord.ui.TextInput(
             label=i18n.get_text("ui.input_welcome_desc", guild_id)[:45],
             style=discord.TextStyle.paragraph,
-            placeholder=i18n.get_text("ui.placeholder_welcome_desc", guild_id),
+            placeholder=i18n.get_text("ui.welcome_desc", guild_id),
             default=config.get("desc", config.get("message", "")),
             required=True, max_length=2000
         )
@@ -41,7 +41,7 @@ class WelcomeModal(discord.ui.Modal):
 
         self.footer_input = discord.ui.TextInput(
             label=i18n.get_text("ui.input_welcome_footer", guild_id)[:45],
-            placeholder=i18n.get_text("ui.placeholder_welcome_footer", guild_id),
+            placeholder=i18n.get_text("ui.welcome_footer", guild_id),
             default=config.get("footer", ""),
             required=False, max_length=1024
         )
@@ -98,7 +98,7 @@ class WelcomeChannelSettingView(discord.ui.View):
         self.parent_view = parent_view
         self.add_item(WelcomeChannelSelect(guild_id, parent_view))
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.back", guild_id), style=discord.ButtonStyle.secondary
         )
         back_button.callback = self.back_to_main
         self.add_item(back_button)
@@ -131,8 +131,8 @@ class WelcomeSettingView(discord.ui.View):
             設定好選項與回呼的 Select 元件
         """
         options = [
-            discord.SelectOption(label=i18n.get_text("ui.opt_set_welcome_channel", self.guild_id), value="set_channel"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_edit_welcome_msg", self.guild_id), value="edit_msg"),
+            discord.SelectOption(label=i18n.get_text("ui.set_welcome_channel", self.guild_id), value="set_channel"),
+            discord.SelectOption(label=i18n.get_text("ui.edit_welcome_msg", self.guild_id), value="edit_msg"),
         ]
 
         select = discord.ui.Select(placeholder=i18n.get_text("ui.welcome_panel_placeholder", self.guild_id),
@@ -146,7 +146,7 @@ class WelcomeSettingView(discord.ui.View):
         current_state = config.get("avatar", True)
         state_text = i18n.get_text("ui.state_on" if current_state else "ui.state_off", self.guild_id)
         button = discord.ui.Button(
-            label=f"{i18n.get_text('ui.opt_toggle_welcome_avatar', self.guild_id)}: {state_text}",
+            label=f"{i18n.get_text('ui.toggle_welcome_avatar', self.guild_id)}: {state_text}",
             style=discord.ButtonStyle.success if current_state else discord.ButtonStyle.danger,
         )
         button.callback = self._toggle_avatar
@@ -196,7 +196,7 @@ class WelcomeSettingView(discord.ui.View):
             # 切換為頻道選擇模式
             view = WelcomeChannelSettingView(self.guild_id, self)
             await interaction.response.edit_message(
-                content=i18n.get_text("ui.msg_select_welcome_channel", self.guild_id), embed=None, view=view)
+                content=i18n.get_text("ui.welcome_channel_prompt", self.guild_id), embed=None, view=view)
 
         elif selected_value == "edit_msg":
             await interaction.response.send_modal(WelcomeModal(self.guild_id, self))

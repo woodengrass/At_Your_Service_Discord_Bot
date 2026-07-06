@@ -62,7 +62,7 @@ class WarningTimeModal(discord.ui.Modal):
 
         self.time_input = discord.ui.TextInput(
             label=i18n.get_text("ui.input_time_hhmm", guild_id)[:45],
-            placeholder=i18n.get_text("ui.placeholder_time_hhmm", guild_id),
+            placeholder=i18n.get_text("ui.time_hhmm", guild_id),
             default=schedule_config.get("time", "12:00"),
             required=True, max_length=5
         )
@@ -73,7 +73,7 @@ class WarningTimeModal(discord.ui.Modal):
             default_days = ",".join(map(str, schedule_config.get("days", [])))
             self.days_input = discord.ui.TextInput(
                 label=i18n.get_text("ui.input_time_days", guild_id)[:45],
-                placeholder=i18n.get_text("ui.placeholder_time_days", guild_id),
+                placeholder=i18n.get_text("ui.time_days", guild_id),
                 default=default_days,
                 required=True, max_length=50
             )
@@ -140,20 +140,20 @@ class WarningScheduleView(discord.ui.View):
         self.parent_view = parent_view
 
         options = [
-            discord.SelectOption(label=i18n.get_text("ui.opt_freq_daily", guild_id), value="daily"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_freq_weekly", guild_id), value="weekly"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_freq_monthly", guild_id), value="monthly"),
+            discord.SelectOption(label=i18n.get_text("ui.freq_daily", guild_id), value="daily"),
+            discord.SelectOption(label=i18n.get_text("ui.freq_weekly", guild_id), value="weekly"),
+            discord.SelectOption(label=i18n.get_text("ui.freq_monthly", guild_id), value="monthly"),
         ]
-        frequency_select = discord.ui.Select(placeholder=i18n.get_text("ui.placeholder_freq_select", guild_id), options=options)
+        frequency_select = discord.ui.Select(placeholder=i18n.get_text("ui.freq_select", guild_id), options=options)
         frequency_select.callback = self.frequency_callback
         self.add_item(frequency_select)
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.back", guild_id), style=discord.ButtonStyle.secondary
         )
         back_button.callback = self.back_callback
         self.add_item(back_button)
         cancel_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_cancel", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.cancel", guild_id), style=discord.ButtonStyle.secondary
         )
         cancel_button.callback = self.cancel_callback
         self.add_item(cancel_button)
@@ -165,7 +165,7 @@ class WarningScheduleView(discord.ui.View):
 
     async def back_callback(self, interaction: discord.Interaction) -> None:
         await interaction.response.edit_message(
-            content=i18n.get_text("ui.msg_warning_target", self.guild_id),
+            content=i18n.get_text("ui.warning_target", self.guild_id),
             embed=None,
             view=WarningTargetView(self.guild_id, self.user_id, self.parent_view),
         )
@@ -193,7 +193,7 @@ class WarningTargetView(discord.ui.View):
 
         # 頻道選擇
         channel_select = discord.ui.ChannelSelect(
-            placeholder=i18n.get_text("ui.placeholder_warning_channel", guild_id),
+            placeholder=i18n.get_text("ui.warning_channel", guild_id),
             channel_types=[discord.ChannelType.text],
             min_values=1, max_values=1
         )
@@ -202,23 +202,23 @@ class WarningTargetView(discord.ui.View):
 
         # 身分組選擇
         role_select = discord.ui.RoleSelect(
-            placeholder=i18n.get_text("ui.placeholder_warning_role", guild_id), min_values=0, max_values=1
+            placeholder=i18n.get_text("ui.warning_role", guild_id), min_values=0, max_values=1
         )
         role_select.callback = self.role_callback
         self.add_item(role_select)
 
         # 下一步按鈕
-        next_button = discord.ui.Button(label=i18n.get_text("ui.btn_next_step", guild_id),
+        next_button = discord.ui.Button(label=i18n.get_text("ui.next_step", guild_id),
                                         style=discord.ButtonStyle.primary)
         next_button.callback = self.next_callback
         self.add_item(next_button)
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.back", guild_id), style=discord.ButtonStyle.secondary
         )
         back_button.callback = self.back_callback
         self.add_item(back_button)
         cancel_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_cancel", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.cancel", guild_id), style=discord.ButtonStyle.secondary
         )
         cancel_button.callback = self.cancel_callback
         self.add_item(cancel_button)
@@ -241,7 +241,7 @@ class WarningTargetView(discord.ui.View):
             return
 
         view = WarningScheduleView(self.guild_id, self.user_id, self.parent_view)
-        schedule_prompt = i18n.get_text("ui.msg_warning_schedule", self.guild_id)
+        schedule_prompt = i18n.get_text("ui.warning_schedule", self.guild_id)
         await interaction.response.edit_message(content=schedule_prompt, view=view)
 
     async def back_callback(self, interaction: discord.Interaction) -> None:
@@ -333,7 +333,7 @@ class WarningContentModal(discord.ui.Modal):
             }
 
         view = WarningTargetView(self.guild_id, self.user_id, self.parent_view)
-        target_prompt = i18n.get_text("ui.msg_warning_target", self.guild_id)
+        target_prompt = i18n.get_text("ui.warning_target", self.guild_id)
         await interaction.response.edit_message(content=target_prompt, embed=None, view=view)
 
 
@@ -362,7 +362,7 @@ class WarningListSelect(discord.ui.Select):
                 discord.SelectOption(label=f"{title} ({status_text})"[:100], value=warning_id, description=identifier_text)
             )
 
-        super().__init__(placeholder=i18n.get_text("ui.placeholder_select_warning", guild_id), options=options)
+        super().__init__(placeholder=i18n.get_text("ui.select_warning", guild_id), options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         warning_id = self.values[0]
@@ -408,19 +408,19 @@ class WarningSelectionView(discord.ui.View):
 
         if self.page > 0:
             previous_button = discord.ui.Button(
-                label=i18n.get_text("ui.btn_previous_page", guild_id), style=discord.ButtonStyle.secondary
+                label=i18n.get_text("ui.previous_page", guild_id), style=discord.ButtonStyle.secondary
             )
             previous_button.callback = self.previous_page
             self.add_item(previous_button)
         if self.page < self.total_pages - 1:
             next_button = discord.ui.Button(
-                label=i18n.get_text("ui.btn_next_page", guild_id), style=discord.ButtonStyle.secondary
+                label=i18n.get_text("ui.next_page", guild_id), style=discord.ButtonStyle.secondary
             )
             next_button.callback = self.next_page
             self.add_item(next_button)
 
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.back", guild_id), style=discord.ButtonStyle.secondary
         )
         back_button.callback = self.back_to_main
         self.add_item(back_button)
@@ -449,12 +449,12 @@ class WarningActionSelect(discord.ui.Select):
         self.parent_view = parent_view
 
         options = [
-            discord.SelectOption(label=i18n.get_text("ui.opt_add_warning", guild_id), value="add"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_edit_warning", guild_id), value="edit"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_toggle_warning", guild_id), value="toggle"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_delete_warning", guild_id), value="delete"),
+            discord.SelectOption(label=i18n.get_text("ui.add_warning", guild_id), value="add"),
+            discord.SelectOption(label=i18n.get_text("ui.edit_warning", guild_id), value="edit"),
+            discord.SelectOption(label=i18n.get_text("ui.toggle_warning", guild_id), value="toggle"),
+            discord.SelectOption(label=i18n.get_text("ui.delete_warning", guild_id), value="delete"),
         ]
-        super().__init__(placeholder=i18n.get_text("ui.placeholder_warning_action", guild_id), options=options)
+        super().__init__(placeholder=i18n.get_text("ui.warning_action", guild_id), options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         selected_value = self.values[0]
@@ -496,14 +496,14 @@ class WarningSettingView(discord.ui.View):
         self.add_item(WarningActionSelect(self.guild_id, self))
         if self.page > 0:
             previous_button = discord.ui.Button(
-                label=i18n.get_text("ui.btn_previous_page", self.guild_id),
+                label=i18n.get_text("ui.previous_page", self.guild_id),
                 style=discord.ButtonStyle.secondary,
             )
             previous_button.callback = self.previous_page
             self.add_item(previous_button)
         if self.page < self.total_pages - 1:
             next_button = discord.ui.Button(
-                label=i18n.get_text("ui.btn_next_page", self.guild_id),
+                label=i18n.get_text("ui.next_page", self.guild_id),
                 style=discord.ButtonStyle.secondary,
             )
             next_button.callback = self.next_page

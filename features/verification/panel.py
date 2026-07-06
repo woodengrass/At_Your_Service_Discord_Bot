@@ -112,7 +112,7 @@ class VerificationSubView(discord.ui.View):
         self.parent_view = parent_view
         self.add_item(item)
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.back", guild_id), style=discord.ButtonStyle.secondary
         )
         back_button.callback = self.back_to_main
         self.add_item(back_button)
@@ -132,13 +132,13 @@ class VerificationLockdownConfirmView(discord.ui.View):
         self.parent_view = parent_view
 
         confirm_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_confirm", guild_id), style=discord.ButtonStyle.danger
+            label=i18n.get_text("ui.confirm", guild_id), style=discord.ButtonStyle.danger
         )
         confirm_button.callback = self.confirm
         self.add_item(confirm_button)
 
         cancel_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_cancel", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.cancel", guild_id), style=discord.ButtonStyle.secondary
         )
         cancel_button.callback = self.cancel
         self.add_item(cancel_button)
@@ -332,7 +332,7 @@ class VerificationSettingView(discord.ui.View):
             設定好回呼的按鈕元件
         """
         button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", self.guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.back", self.guild_id), style=discord.ButtonStyle.secondary
         )
         button.callback = self.back_to_anti_fraud_menu
         return button

@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 
 import discord
 
@@ -21,13 +21,13 @@ class DeleteLogToggleView(discord.ui.View):
         current_state = GuildSettings.get_module_config(guild_id, "delete_log").get("enabled", False)
         state_text = i18n.get_text("ui.state_on" if current_state else "ui.state_off", guild_id)
         toggle_button = discord.ui.Button(
-            label=f"{i18n.get_text('ui.opt_toggle_delete_log', guild_id)}: {state_text}",
+            label=f"{i18n.get_text('ui.toggle_delete_log', guild_id)}: {state_text}",
             style=discord.ButtonStyle.success if current_state else discord.ButtonStyle.danger,
         )
         toggle_button.callback = self.toggle_log
         self.add_item(toggle_button)
         back_button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id),
+            label=i18n.get_text("ui.back", guild_id),
             style=discord.ButtonStyle.secondary,
         )
         back_button.callback = self.back_to_main

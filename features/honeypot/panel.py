@@ -1,4 +1,4 @@
-import discord
+﻿import discord
 from discord.ext import commands
 
 from core.guild_settings import GuildSettings
@@ -72,7 +72,7 @@ class HoneypotComponentView(discord.ui.View):
         self.parent_view = parent_view
         self.add_item(item)
         button = discord.ui.Button(
-            label=i18n.get_text("ui.btn_back", guild_id), style=discord.ButtonStyle.secondary
+            label=i18n.get_text("ui.back", guild_id), style=discord.ButtonStyle.secondary
         )
         button.callback = self.back_to_menu
         self.add_item(button)
@@ -87,11 +87,11 @@ class HoneypotMenuSelect(discord.ui.Select):
     def __init__(self, guild_id: int) -> None:
         self.guild_id = guild_id
         options = [
-            discord.SelectOption(label=i18n.get_text("ui.opt_set_honeypot", guild_id), value="set"),
-            discord.SelectOption(label=i18n.get_text("ui.opt_view_banned_texts", guild_id), value="logs"),
-            discord.SelectOption(label=i18n.get_text("ui.btn_back", guild_id), value="back"),
+            discord.SelectOption(label=i18n.get_text("ui.set_honeypot", guild_id), value="set"),
+            discord.SelectOption(label=i18n.get_text("ui.view_banned_texts", guild_id), value="logs"),
+            discord.SelectOption(label=i18n.get_text("ui.back", guild_id), value="back"),
         ]
-        super().__init__(placeholder=i18n.get_text("ui.placeholder_honeypot_menu", guild_id), options=options)
+        super().__init__(placeholder=i18n.get_text("ui.honeypot_menu", guild_id), options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:
         selected_value = self.values[0]

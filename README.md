@@ -197,10 +197,6 @@ honeypot-discord-bot/
 
 確認對應 API Key 已寫入 `token.env`、模型可用，並查看終端機與 `logs/bot.log`。
 
-## 開發規範
-
-所有修改必須遵守 `CONVENTIONS.md`，包括 Python 3.11、type hint、繁體中文 docstring、i18n、模組 logger 與最小修改範圍。Codex 會透過 `AGENTS.md` 載入工作規則。
-
 ## 安全注意事項
 
 - 不要將 Token、API Key、日誌或私密匯出資料提交至 Git。

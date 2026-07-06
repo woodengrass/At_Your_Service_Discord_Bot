@@ -2,22 +2,25 @@
 import os
 import re
 import time
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import aiohttp
 import discord
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
+from core.guild_settings import GuildSettings
 from core.i18n import i18n
 from features.link_checker.repository import get_all_keywords, seed_default_keywords_if_empty
-from core.guild_settings import GuildSettings
+from features.link_checker.url_safety import PublicAddressResolver, is_safe_public_url
 
 logger = logging.getLogger(__name__)
 
 load_dotenv("token.env")
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_SAFE_BROWSING_KEY")
+MAX_SHORT_URL_REDIRECTS = 3
+REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
 
 
 class LinkChecker(commands.Cog):
@@ -46,7 +49,9 @@ class LinkChecker(commands.Cog):
         """
         載入 Cog 時建立共用的 aiohttp session，並從資料庫載入可疑關鍵字清單。
         """
-        self.session = aiohttp.ClientSession()
+        connector = aiohttp.TCPConnector(resolver=PublicAddressResolver(), ttl_dns_cache=0)
+        timeout = aiohttp.ClientTimeout(total=5, connect=3, sock_read=3)
+        self.session = aiohttp.ClientSession(connector=connector, timeout=timeout)
         await seed_default_keywords_if_empty()
         await self.reload_keywords()
 
@@ -70,7 +75,11 @@ class LinkChecker(commands.Cog):
         定期清除已超過存活時間的網址安全性快取。
         """
         now = time.time()
-        expired_keys = [cache_key for cache_key, cache_value in self.cache.items() if now - cache_value[1] > self.cache_ttl]
+        expired_keys = [
+            cache_key
+            for cache_key, cache_value in self.cache.items()
+            if now - cache_value[1] > self.cache_ttl
+        ]
         for cache_key in expired_keys:
             del self.cache[cache_key]
 
@@ -97,15 +106,47 @@ class LinkChecker(commands.Cog):
         Returns:
             還原後的網址；若非短網址或還原失敗則回傳原網址
         """
+        parsed_url = urlparse(url)
+        domain = parsed_url.hostname.lower() if parsed_url.hostname else ""
+        if domain not in self.shortener_domains:
+            return url
+
+        current_url = url
         try:
-            parsed = urlparse(url)
-            domain = parsed.netloc.lower()
-            if domain in self.shortener_domains:
-                async with self.session.head(url, allow_redirects=True, timeout=3) as response:
-                    return str(response.url)
-        except Exception as e:
-            logger.error(f"短網址還原失敗：{e}", exc_info=True)
+            for _redirect_count in range(MAX_SHORT_URL_REDIRECTS + 1):
+                if not is_safe_public_url(current_url):
+                    logger.warning("拒絕展開不安全的短網址目標：%s", current_url)
+                    return url
+
+                status, location = await self._request_redirect(current_url)
+                if status not in REDIRECT_STATUS_CODES or not location:
+                    return current_url
+                current_url = urljoin(current_url, location)
+
+            logger.warning("短網址重新導向次數超過上限：%s", url)
+        except Exception as error:
+            logger.error(f"短網址還原失敗：{error}", exc_info=True)
         return url
+
+    async def _request_redirect(self, url: str) -> tuple[int, str | None]:
+        """
+        對單一 URL 發出不自動跟隨的輕量請求，回傳狀態碼與 Location。
+
+        Args:
+            url: 已通過基本結構驗證的網址
+
+        Returns:
+            HTTP 狀態碼與 Location 標頭；沒有 Location 時回傳 None
+        """
+        if self.session is None:
+            raise RuntimeError("HTTP session 尚未初始化")
+        async with self.session.head(url, allow_redirects=False) as response:
+            if response.status not in {405, 501}:
+                return response.status, response.headers.get("Location")
+
+        headers = {"Range": "bytes=0-0"}
+        async with self.session.get(url, headers=headers, allow_redirects=False) as response:
+            return response.status, response.headers.get("Location")
 
     async def check_google_safe_browsing(self, url: str) -> bool:
         """

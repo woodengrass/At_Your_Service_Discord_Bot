@@ -1286,10 +1286,30 @@
       "zh-CN": " 开始扫描过去 {hours} 小时的消息，请稍候...",
       "en-US": " Scanning past {hours} hours of messages, please wait..."
     },
+    "export_start_all": {
+      "zh-TW": "開始掃描此頻道的全部訊息，請稍候...",
+      "zh-CN": "开始扫描此频道的全部消息，请稍候...",
+      "en-US": "Scanning the complete channel history. Please wait..."
+    },
     "export_progress": {
       "zh-TW": " 正在掃描... 已獲取 {count} 則訊息",
       "zh-CN": " 正在扫描... 已获取 {count} 条消息",
       "en-US": " Scanning... Retrieved {count} messages"
+    },
+    "export_busy": {
+      "zh-TW": "目前已有聊天紀錄匯出工作正在執行，請稍後再試。",
+      "zh-CN": "目前已有聊天记录导出工作正在执行，请稍后再试。",
+      "en-US": "Another chat export is already running. Please try again later."
+    },
+    "export_invalid_range": {
+      "zh-TW": "小時與訊息數量不可為負數；輸入 0 代表不限制。",
+      "zh-CN": "小时与消息数量不可为负数；输入 0 代表不限制。",
+      "en-US": "Hours and message count cannot be negative; use 0 for no limit."
+    },
+    "export_chunk": {
+      "zh-TW": "聊天紀錄匯出分片 {index}",
+      "zh-CN": "聊天记录导出分片 {index}",
+      "en-US": "Chat export part {index}"
     },
     "custom_panel_default_button": {
       "zh-TW": "按鈕",
@@ -1305,6 +1325,11 @@
       "zh-TW": " 過去 {hours} 小時內沒有發現任何訊息。",
       "zh-CN": " 过去 {hours} 小时内没有发现任何消息。",
       "en-US": " No messages found in the past {hours} hours."
+    },
+    "export_no_msg_all": {
+      "zh-TW": "此頻道沒有可匯出的訊息。",
+      "zh-CN": "此频道没有可导出的消息。",
+      "en-US": "There are no messages to export in this channel."
     },
     "export_done_public": {
       "zh-TW": " **聊天紀錄導出完成！**\n 來源頻道：{channel}\n 訊息數量：{count} 則",
@@ -1495,6 +1520,11 @@
       "zh-TW": "語音轉錄失敗，請稍後再試。",
       "zh-CN": "语音转录失败，请稍后再试。",
       "en-US": "Transcription failed. Please try again later."
+    },
+    "stt_file_too_large": {
+      "zh-TW": "語音檔案過大，無法進行轉錄。請壓縮或分割檔案後再試。",
+      "zh-CN": "语音文件过大，无法进行转录。请压缩或分割文件后再试。",
+      "en-US": "The audio file is too large to transcribe. Compress or split it and try again."
     },
     "summary_analyzing": {
       "zh-TW": "正在讀取從該訊息之後的對話紀錄並進行分析...",

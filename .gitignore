@@ -52,3 +52,10 @@ data/trigger.json
 
 # 開發者測試用後門，含真實使用者 ID，不進版控
 dev/verification_backdoor.py
+
+# 合併 origin/main 時保留下來的重構前舊版檔案，本機留著參考，不進版控
+cogs/config_commands.py
+cogs/text_triggers.py
+config/counting.json
+config/honeypot_config.json
+config/ticket.json

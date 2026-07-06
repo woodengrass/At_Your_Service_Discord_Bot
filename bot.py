@@ -16,13 +16,13 @@ with open("config/honeypot_config.json", "r") as f:
 
 bot.honeypots = honeypot_config
 
-TEST_GUILD_ID = 1353379898705707079
+TEST_GUILD_ID = 你的伺服器ID
 
 @bot.event
 async def on_ready():
-    guild = discord.Object(id=1353379898705707079)  # 替换成你测试的服务器ID，int类型
+    guild = discord.Object(id=你的伺服器ID)
     await bot.tree.sync(guild=guild)
-    print(f"Slash 命令已同步到服务器，Bot 在线：{bot.user}")
+    print(f"Slash 命令已同步到伺服器，bot上線：{bot.user}")
 
 async def main():
     await bot.load_extension("cogs.honeypot_monitor")

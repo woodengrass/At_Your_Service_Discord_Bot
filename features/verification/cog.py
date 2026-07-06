@@ -5,14 +5,21 @@ import logging
 import discord
 from discord.ext import commands
 
-from core.config import CONFIG
-from core.i18n import i18n
 from core.audit_log_repository import add_log_entry
+from core.config import CONFIG
 from core.guild_settings import GuildSettings
-from features.verification.service import calculate_risk_score
+from core.i18n import i18n
 from features.verification.repository import (
-    delete_entry, get_entry, reset_flagged_entry_by_channel, set_pending, set_review_channel, set_status
+    delete_entry,
+    delete_guild_entries,
+    get_entry,
+    get_stale_review_channels,
+    reset_flagged_entry_by_channel,
+    set_pending,
+    set_review_channel,
+    set_status,
 )
+from features.verification.service import calculate_risk_score
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +73,42 @@ class Verification(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+
+    async def cog_load(self) -> None:
+        """
+        Cog 載入時向 core.lifecycle 註冊定期清理函式與伺服器移除清理函式，
+        避免清理邏輯集中寫在 core 裡。
+        """
+        from core import lifecycle
+        lifecycle.register_cleanup_handler(self._cleanup_stale_review_channels)
+        lifecycle.register_guild_remove_handler(self._cleanup_guild_entries)
+
+    async def _cleanup_stale_review_channels(self) -> None:
+        """
+        定期檢查並重置指向已失效審核頻道的驗證紀錄。
+        保險機制：正常情況下頻道刪除時 on_guild_channel_delete 就會即時同步，
+        這裡是防止漏接事件（例如機器人當下離線）時的後備清理。
+        """
+        stale_review_count = 0
+        for guild_id, review_channel_id in await get_stale_review_channels():
+            if self.bot.get_channel(review_channel_id):
+                continue
+            if await reset_flagged_entry_by_channel(guild_id, review_channel_id):
+                stale_review_count += 1
+
+        if stale_review_count:
+            print(f"[背景任務] 已重置 {stale_review_count} 筆指向失效審核頻道的驗證紀錄。")
+
+    async def _cleanup_guild_entries(self, guild_id: int) -> None:
+        """
+        機器人被移出伺服器時，清除該伺服器所有的驗證紀錄。
+
+        Args:
+            guild_id: 被移出的伺服器 ID
+        """
+        deleted_verifications = await delete_guild_entries(guild_id)
+        if deleted_verifications:
+            print(f"[資訊] 已移出伺服器 {guild_id}，清除 {deleted_verifications} 筆驗證紀錄。")
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:

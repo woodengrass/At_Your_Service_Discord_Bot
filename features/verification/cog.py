@@ -5,14 +5,23 @@ import logging
 import discord
 from discord.ext import commands
 
-from core.config import CONFIG
-from core.i18n import i18n
 from core.audit_log_repository import add_log_entry
+from core.config import CONFIG
 from core.guild_settings import GuildSettings
-from features.verification.service import calculate_risk_score
+from core.i18n import i18n
 from features.verification.repository import (
-    delete_entry, get_entry, reset_flagged_entry_by_channel, set_pending, set_review_channel, set_status
+    claim_review_creation,
+    complete_review_creation,
+    delete_entry,
+    get_entry,
+    get_review_creations,
+    reset_flagged_entry_by_channel,
+    reset_review_creation,
+    set_pending,
+    set_review_channel,
+    set_status,
 )
+from features.verification.service import calculate_risk_score
 
 logger = logging.getLogger(__name__)
 
@@ -66,13 +75,18 @@ class Verification(commands.Cog):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
+        self._ready_initialized = False
 
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         """
         機器人啟動時註冊「我是人類」持久化按鈕，確保重啟後仍然可以使用。
         """
+        if self._ready_initialized:
+            return
         self.bot.add_view(VerificationButtonView())
+        await self._recover_incomplete_review_creations()
+        self._ready_initialized = True
 
     def get_config(self, guild_id: int) -> dict:
         """
@@ -211,6 +225,11 @@ class Verification(commands.Cog):
                 ephemeral=True
             )
             return
+        if entry["status"] == "review_creating":
+            await interaction.response.send_message(
+                i18n.get_text("messages.verify_already_processed", guild_id), ephemeral=True
+            )
+            return
         if entry["status"] == "rejected":
             # 拒絕為終止狀態，不重新評估風險分數，避免被拒絕者無限重試直到自動通過
             await interaction.response.send_message(
@@ -222,10 +241,20 @@ class Verification(commands.Cog):
         risk_threshold = config.get("risk_threshold", DEFAULT_RISK_THRESHOLD)
 
         if entry["risk_score"] < risk_threshold:
-            await self._approve_member(interaction.guild, interaction.user, config, action_type="verification_auto_approved")
-            await interaction.response.send_message(i18n.get_text("messages.verify_success", guild_id), ephemeral=True)
+            approved = await self._approve_member(
+                interaction.guild,
+                interaction.user,
+                config,
+                action_type="verification_auto_approved",
+            )
+            message_key = "messages.verify_success" if approved else "messages.verify_role_error"
+            await interaction.response.send_message(i18n.get_text(message_key, guild_id), ephemeral=True)
         else:
-            await set_status(guild_id, user_id, "flagged")
+            if not await claim_review_creation(guild_id, user_id):
+                await interaction.response.send_message(
+                    i18n.get_text("messages.verify_already_processed", guild_id), ephemeral=True
+                )
+                return
             review_channel = await self._open_review_channel(interaction.guild, interaction.user, config)
             if review_channel:
                 await interaction.response.send_message(
@@ -234,7 +263,7 @@ class Verification(commands.Cog):
                 )
             else:
                 await interaction.response.send_message(
-                    i18n.get_text("messages.verify_no_entry_found", guild_id), ephemeral=True
+                    i18n.get_text("messages.error_unknown", guild_id), ephemeral=True
                 )
 
     def _can_review(self, member: discord.Member, config: dict) -> bool:
@@ -277,7 +306,14 @@ class Verification(commands.Cog):
         member = guild.get_member(user_id)
 
         if action == "approve" and member:
-            await self._approve_member(guild, member, config, action_type="verification_manual_approved")
+            approved = await self._approve_member(
+                guild, member, config, action_type="verification_manual_approved"
+            )
+            if not approved:
+                await interaction.followup.send(
+                    i18n.get_text("messages.verify_role_error", guild.id), ephemeral=True
+                )
+                return
             status_text = i18n.get_text("messages.verify_approved", guild.id, admin=interaction.user.mention)
         elif action == "deny":
             await set_status(guild.id, user_id, "rejected")
@@ -305,34 +341,101 @@ class Verification(commands.Cog):
 
     async def _approve_member(
         self, guild: discord.Guild, member: discord.Member, config: dict, action_type: str
-    ) -> None:
+    ) -> bool:
         """
-        將成員從待驗證身分組轉為已驗證身分組，並記錄到稽核紀錄。
+        將成員從待驗證身分組轉為已驗證身分組。只有身分組操作完整成功後，
+        才會更新驗證狀態與稽核紀錄；部分成功時會嘗試回復本次變更。
 
         Args:
             guild: 伺服器物件
             member: 要放行的成員物件
             config: 驗證系統設定
             action_type: 寫入稽核紀錄的動作類型
+
+        Returns:
+            True 表示身分組與驗證狀態皆處理完成；稽核紀錄失敗會另外記錄錯誤
         """
         restricted_role_id = config.get("restricted_role_id")
         verified_role_id = config.get("verified_role_id")
         approved_reason = i18n.get_text("messages.verification_reason_approved", guild.id)
 
+        verified_role = guild.get_role(int(verified_role_id)) if verified_role_id else None
+        restricted_role = guild.get_role(int(restricted_role_id)) if restricted_role_id else None
+        if verified_role is None or restricted_role is None:
+            logger.error(
+                "驗證通過所需身分組不存在：伺服器 ID=%s，使用者 ID=%s",
+                guild.id,
+                member.id,
+            )
+            return False
+
+        added_verified_role = False
+        removed_restricted_role = False
         try:
-            if verified_role_id:
-                verified_role = guild.get_role(int(verified_role_id))
-                if verified_role:
-                    await member.add_roles(verified_role, reason=approved_reason)
-            if restricted_role_id:
-                restricted_role = guild.get_role(int(restricted_role_id))
-                if restricted_role:
-                    await member.remove_roles(restricted_role, reason=approved_reason)
+            if verified_role not in member.roles:
+                await member.add_roles(verified_role, reason=approved_reason)
+                added_verified_role = True
+            if restricted_role in member.roles:
+                await member.remove_roles(restricted_role, reason=approved_reason)
+                removed_restricted_role = True
         except Exception as error:
             logger.error(f"驗證通過後身分組調整失敗：{error}", exc_info=True)
+            await self._rollback_approval_roles(
+                member,
+                verified_role,
+                restricted_role,
+                added_verified_role,
+                removed_restricted_role,
+            )
+            return False
 
-        await set_status(guild.id, member.id, "approved")
-        await add_log_entry(guild.id, member.id, action_type, approved_reason)
+        try:
+            await set_status(guild.id, member.id, "approved")
+        except Exception as error:
+            logger.error(f"更新驗證通過狀態失敗：{error}", exc_info=True)
+            await self._rollback_approval_roles(
+                member,
+                verified_role,
+                restricted_role,
+                added_verified_role,
+                removed_restricted_role,
+            )
+            return False
+
+        try:
+            await add_log_entry(guild.id, member.id, action_type, approved_reason)
+        except Exception as error:
+            logger.error(f"寫入驗證通過稽核紀錄失敗：{error}", exc_info=True)
+        return True
+
+    async def _rollback_approval_roles(
+        self,
+        member: discord.Member,
+        verified_role: discord.Role,
+        restricted_role: discord.Role,
+        added_verified_role: bool,
+        removed_restricted_role: bool,
+    ) -> None:
+        """
+        回復本次核准流程已完成的身分組變更，避免 Discord 狀態與資料庫狀態不一致。
+
+        Args:
+            member: 要回復身分組的成員
+            verified_role: 已驗證身分組
+            restricted_role: 待驗證身分組
+            added_verified_role: 本次流程是否新增過已驗證身分組
+            removed_restricted_role: 本次流程是否移除過待驗證身分組
+        """
+        if removed_restricted_role:
+            try:
+                await member.add_roles(restricted_role, reason="驗證核准失敗，回復待驗證身分組")
+            except Exception as error:
+                logger.error(f"回復待驗證身分組失敗：{error}", exc_info=True)
+        if added_verified_role:
+            try:
+                await member.remove_roles(verified_role, reason="驗證核准失敗，回復已驗證身分組")
+            except Exception as error:
+                logger.error(f"回復已驗證身分組失敗：{error}", exc_info=True)
 
     async def _open_review_channel(
         self, guild: discord.Guild, member: discord.Member, config: dict
@@ -368,13 +471,17 @@ class Verification(commands.Cog):
             if review_role:
                 overwrites[review_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
 
+        review_channel = None
         try:
-            review_channel = await guild.create_text_channel(channel_name, category=category, overwrites=overwrites)
+            review_channel = await guild.create_text_channel(
+                channel_name, category=category, overwrites=overwrites
+            )
+            if not await set_review_channel(guild.id, member.id, review_channel.id):
+                raise RuntimeError("驗證紀錄已不在建立審核頻道狀態")
         except Exception as error:
             logger.error(f"建立驗證審核頻道失敗：{error}", exc_info=True)
+            await self._cleanup_failed_review_creation(guild.id, member.id, review_channel)
             return None
-
-        await set_review_channel(guild.id, member.id, review_channel.id)
 
         account_age_days = (datetime.datetime.now(datetime.timezone.utc) - member.created_at).days
         embed = discord.Embed(
@@ -391,8 +498,68 @@ class Verification(commands.Cog):
             await review_channel.send(content=member.mention, embed=embed, view=view)
         except Exception as error:
             logger.error(f"發送驗證審核請求失敗：{error}", exc_info=True)
+            await self._cleanup_failed_review_creation(guild.id, member.id, review_channel)
+            return None
+
+        try:
+            review_creation_completed = await complete_review_creation(
+                guild.id, member.id, review_channel.id
+            )
+        except Exception as error:
+            logger.error(f"完成驗證審核頻道狀態失敗：{error}", exc_info=True)
+            review_creation_completed = False
+
+        if not review_creation_completed:
+            logger.error(
+                "驗證審核頻道未能轉為等待審核狀態：伺服器 ID=%s，使用者 ID=%s，頻道 ID=%s",
+                guild.id,
+                member.id,
+                review_channel.id,
+            )
+            await self._cleanup_failed_review_creation(guild.id, member.id, review_channel)
+            return None
 
         return review_channel
+
+    async def _cleanup_failed_review_creation(
+        self,
+        guild_id: int,
+        user_id: int,
+        review_channel: discord.TextChannel | None,
+    ) -> None:
+        """
+        清理由建立失敗流程留下的審核頻道，並將驗證紀錄回復為 pending。
+
+        Args:
+            guild_id: 伺服器 ID
+            user_id: 使用者 ID
+            review_channel: 已建立的審核頻道；尚未建立時為 None
+        """
+        if review_channel is not None:
+            try:
+                await review_channel.delete()
+            except Exception as error:
+                logger.error(f"清理建立失敗的驗證審核頻道失敗：{error}", exc_info=True)
+        try:
+            await reset_review_creation(guild_id, user_id)
+        except Exception as error:
+            logger.error(f"回復驗證審核建立狀態失敗：{error}", exc_info=True)
+
+    async def _recover_incomplete_review_creations(self) -> None:
+        """
+        Bot 啟動時清理前次程序中斷所留下的建立中審核頻道，並回復驗證紀錄。
+        """
+        for guild_id, user_id, channel_id in await get_review_creations():
+            review_channel = self.bot.get_channel(channel_id) if channel_id else None
+            if isinstance(review_channel, discord.TextChannel):
+                try:
+                    await review_channel.delete()
+                except Exception as error:
+                    logger.error(f"清理中斷的驗證審核頻道失敗：{error}", exc_info=True)
+            try:
+                await reset_review_creation(guild_id, user_id)
+            except Exception as error:
+                logger.error(f"回復中斷的驗證審核狀態失敗：{error}", exc_info=True)
 
 
 async def setup(bot: commands.Bot) -> None:

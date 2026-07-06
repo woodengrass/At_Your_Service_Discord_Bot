@@ -156,7 +156,7 @@ The bot loads all cogs and synchronizes global slash commands at startup. Discor
 
 The new-member verification system has no dedicated command; it is configured and enabled from the menu inside `/anti_fraud_setting`.
 
-Link-checker keyword blocklist management, GDPR audit-log deletion, and the known-scam-image hash database are not exposed as Discord commands. They're operated by the bot owner typing commands directly into the terminal running the bot (`admin keyword list/add/remove`, `admin gdpr delete <user_id>`, `admin scamimage list/add/remove/sync`); the terminal prints full usage on startup.
+Link-checker keyword blocklist management, GDPR audit-log deletion, and the known-scam-image hash database are not exposed as Discord commands. They're operated by the bot owner typing commands directly into the terminal running the bot (`admin keyword list/add/remove`, `admin gdpr delete <user_id>`, `admin scamimage list/add/remove/sync`); the terminal prints full usage on startup. Wrap paths or keywords containing spaces in double quotes, e.g. `admin scamimage sync "C:\path\scam image"`.
 
 ## Localization
 

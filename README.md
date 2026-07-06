@@ -139,7 +139,7 @@ python bot.py
 
 新成員驗證系統沒有獨立指令，透過 `/anti_fraud_setting` 面板內的選單設定與啟用。
 
-連結檢查關鍵字黑名單管理、GDPR 稽核紀錄刪除與已知詐騙圖片雜湊資料庫不透過 Discord 指令開放，而是機器人擁有者在執行機器人的終端機輸入文字指令操作（`admin keyword list/add/remove`、`admin gdpr delete <user_id>`、`admin scamimage list/add/remove/sync`），機器人啟動時終端機會印出完整說明。
+連結檢查關鍵字黑名單管理、GDPR 稽核紀錄刪除與已知詐騙圖片雜湊資料庫不透過 Discord 指令開放，而是機器人擁有者在執行機器人的終端機輸入文字指令操作（`admin keyword list/add/remove`、`admin gdpr delete <user_id>`、`admin scamimage list/add/remove/sync`），機器人啟動時終端機會印出完整說明。路徑或關鍵字中間含空白時，請用雙引號包住，例如 `admin scamimage sync "C:\path\scam image"`。
 
 ## 多語言
 

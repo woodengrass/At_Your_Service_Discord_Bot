@@ -1,6 +1,7 @@
 ﻿import asyncio
 import logging
 import os
+import shlex
 
 import imagehash
 from discord.ext import commands
@@ -32,6 +33,7 @@ HELP_TEXT = """
   admin scamimage add <圖片路徑> [標籤]     新增一張詐騙圖片
   admin scamimage remove <圖片路徑>        依圖片內容移除對應的雜湊紀錄
   admin scamimage sync <資料夾路徑>        掃描整個資料夾，匯入尚未加入的圖片（可重複執行）
+  路徑或關鍵字中間有空白時，請用雙引號包住，例如：admin scamimage sync "C:\path\scam image"
 """
 
 
@@ -61,8 +63,12 @@ class AdminConsole(commands.Cog):
         """
         if not line:
             return
-        parts = line.split()
-        if parts[0] != "admin":
+        try:
+            parts = shlex.split(line)
+        except ValueError as error:
+            print(f"[管理員終端機工具] 指令解析失敗，請檢查引號是否配對：{error}")
+            return
+        if not parts or parts[0] != "admin":
             return
 
         if len(parts) < 2 or parts[1] == "help":

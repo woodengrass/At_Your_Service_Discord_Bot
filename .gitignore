@@ -1,0 +1,54 @@
+# 敏感資訊與本機環境變數
+.env
+.env.*
+!.env.example
+token.env
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python 快取與虛擬環境
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# 測試、型別檢查與覆蓋率快取
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE 與作業系統檔案
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 本機 AI 協作規範
+AGENTS.md
+CLAUDE.md
+CONVENTIONS.md
+
+# 暫存與日誌
+*.log
+*.tmp
+*.bak
+
+# 執行期資料庫與舊版 JSON 資料檔（含真實使用者/伺服器資料，不進版控）
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/ticket.json
+data/custom_panel.json
+data/warning.json
+data/guild_settings.json
+data/trigger.json
+
+# 開發者測試用後門，含真實使用者 ID，不進版控
+dev/verification_backdoor.py

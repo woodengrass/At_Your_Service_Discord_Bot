@@ -137,6 +137,21 @@ async def _rollback_lockdown(
     return failure_count
 
 
+def _has_higher_or_equal_authority(member: discord.Member, bot_member: discord.Member) -> bool:
+    """
+    判斷成員是否為管理員，或身分組位置與機器人相同／更高，這種成員機器人本來就無法異動其身分組，
+    而且這種成員本身已經有完整權限，不給已驗證身分組也不影響他們原本能不能發言或操作。
+
+    Args:
+        member: 要判斷的成員
+        bot_member: 機器人在該伺服器的成員物件
+
+    Returns:
+        True 代表應該略過這個成員，不嘗試授予已驗證身分組
+    """
+    return member.guild_permissions.administrator or member.top_role >= bot_member.top_role
+
+
 async def lockdown_and_grandfather(
     guild: discord.Guild,
     restricted_role: discord.Role,
@@ -145,7 +160,7 @@ async def lockdown_and_grandfather(
 ) -> dict[str, int | bool]:
     """
     啟用驗證系統時執行的一次性批次操作：
-    1. 把已驗證身分組發給目前所有現有成員（機器人排除）
+    1. 把已驗證身分組發給目前所有現有成員（機器人、管理員、身分組位置與機器人相同或更高的成員排除）
     2. 把所有「原本 @everyone 就看得到、且非公告頻道、非蜜罐頻道」的文字頻道設定為 @everyone 無法發言，
        只有已驗證身分組能發言
        （本來就對 @everyone 隱藏的頻道、公告頻道、蜜罐頻道、以及所有語音頻道都會被略過，不受此操作影響；
@@ -158,7 +173,7 @@ async def lockdown_and_grandfather(
         honeypot_channel_id: 蜜罐頻道 ID；尚未設定蜜罐功能時為 None
 
     Returns:
-        包含成功狀態、完成數量、失敗數量與回復失敗數量的結果
+        包含成功狀態、完成數量、略過人數、失敗數量與回復失敗數量的結果
     """
     bot_member = guild.me
     lockable_channels = [
@@ -187,14 +202,19 @@ async def lockdown_and_grandfather(
         return {
             "success": False,
             "member_count": 0,
+            "skipped_member_count": 0,
             "channel_count": 0,
             "failure_count": 1,
             "rollback_failure_count": 0,
         }
 
     granted_members: list[discord.Member] = []
+    skipped_member_count = 0
     for member in guild.members:
         if member.bot or verified_role in member.roles:
+            continue
+        if _has_higher_or_equal_authority(member, bot_member):
+            skipped_member_count += 1
             continue
         try:
             await member.add_roles(verified_role, reason="驗證系統啟用：既有成員自動放行")
@@ -205,6 +225,7 @@ async def lockdown_and_grandfather(
             return {
                 "success": False,
                 "member_count": len(granted_members),
+                "skipped_member_count": skipped_member_count,
                 "channel_count": 0,
                 "failure_count": 1,
                 "rollback_failure_count": rollback_failure_count,
@@ -236,6 +257,7 @@ async def lockdown_and_grandfather(
             return {
                 "success": False,
                 "member_count": len(granted_members),
+                "skipped_member_count": skipped_member_count,
                 "channel_count": len(channel_snapshots) - 1,
                 "failure_count": 1,
                 "rollback_failure_count": rollback_failure_count,
@@ -245,6 +267,7 @@ async def lockdown_and_grandfather(
     return {
         "success": True,
         "member_count": len(granted_members),
+        "skipped_member_count": skipped_member_count,
         "channel_count": len(channel_snapshots),
         "failure_count": 0,
         "rollback_failure_count": 0,

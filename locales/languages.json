@@ -1877,9 +1877,9 @@
       "en-US": "Processing, please wait..."
     },
     "verification_lockdown_complete": {
-      "zh-TW": "已完成：{member_count} 位現有成員已取得已驗證身分組，{channel_count} 個頻道已鎖定發言權限。",
-      "zh-CN": "已完成：{member_count} 位现有成员已取得已验证身份组，{channel_count} 个频道已锁定发言权限。",
-      "en-US": "Done: {member_count} existing members granted the verified role, {channel_count} channels locked."
+      "zh-TW": "已完成：{member_count} 位現有成員已取得已驗證身分組，{channel_count} 個頻道已鎖定發言權限。（{skipped_member_count} 位管理員或身分組較高的成員已略過，不受影響）",
+      "zh-CN": "已完成：{member_count} 位现有成员已取得已验证身份组，{channel_count} 个频道已锁定发言权限。（{skipped_member_count} 位管理员或身份组较高的成员已略过，不受影响）",
+      "en-US": "Done: {member_count} existing members granted the verified role, {channel_count} channels locked. ({skipped_member_count} admins or higher-ranked members were skipped and unaffected)"
     },
     "verification_lockdown_failed": {
       "zh-TW": "驗證系統啟用失敗，本次變更已回復，系統維持停用。請檢查機器人權限與身分組階級。",

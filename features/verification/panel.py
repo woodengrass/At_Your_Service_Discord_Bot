@@ -199,7 +199,9 @@ class VerificationLockdownConfirmView(discord.ui.View):
         await interaction.followup.send(
             i18n.get_text(
                 "messages.verification_lockdown_complete", self.guild_id,
-                member_count=result["member_count"], channel_count=result["channel_count"]
+                member_count=result["member_count"],
+                channel_count=result["channel_count"],
+                skipped_member_count=result["skipped_member_count"],
             ),
             ephemeral=True,
         )

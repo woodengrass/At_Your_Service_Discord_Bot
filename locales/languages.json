@@ -107,6 +107,16 @@
     }
   },
   "labels": {
+    "common": {
+      "zh-TW": "通用設定",
+      "zh-CN": "通用设定",
+      "en-US": "Common Settings"
+    },
+    "modules": {
+      "zh-TW": "模組設定",
+      "zh-CN": "模块设定",
+      "en-US": "Module Settings"
+    },
     "log_channel_id": {
       "zh-TW": " 公告頻道",
       "zh-CN": " 公告频道",
@@ -146,6 +156,41 @@
       "zh-TW": " 防洗版系統",
       "zh-CN": " 防刷屏系统",
       "en-US": "Anti-Spam System"
+    },
+    "link_checker": {
+      "zh-TW": "連結安全檢查",
+      "zh-CN": "链接安全检查",
+      "en-US": "Link Safety Check"
+    },
+    "enabled": {
+      "zh-TW": "啟用狀態",
+      "zh-CN": "启用状态",
+      "en-US": "Enabled"
+    },
+    "enable_multi_channel": {
+      "zh-TW": "跨頻道偵測",
+      "zh-CN": "跨频道检测",
+      "en-US": "Multi-Channel Detection"
+    },
+    "enable_same_channel": {
+      "zh-TW": "同頻重複偵測",
+      "zh-CN": "同频重复检测",
+      "en-US": "Same-Channel Detection"
+    },
+    "allowed_channel_ids": {
+      "zh-TW": "允許頻道",
+      "zh-CN": "允许频道",
+      "en-US": "Allowed Channels"
+    },
+    "qr_code_enabled": {
+      "zh-TW": "QR code 網址檢查",
+      "zh-CN": "QR code 链接检查",
+      "en-US": "QR Code URL Check"
+    },
+    "image_hash_enabled": {
+      "zh-TW": "詐騙圖片比對",
+      "zh-CN": "诈骗图片比对",
+      "en-US": "Scam Image Matching"
     },
     "target_role": {
       "zh-TW": " 申請身分組",

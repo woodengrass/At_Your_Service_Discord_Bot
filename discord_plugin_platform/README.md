@@ -13,7 +13,8 @@
 - `core/capability_api.py`：能力登錄表（`CAPABILITY_OWNERS`／`SYNCHRONOUS_FUNCTIONS`）已完整列出附錄 A 全部函式，但實際綁定邏輯待沙箱完成
 - `sandbox/`：三個檔案都是 stub，這是第一階段的核心工作
 - `bot_integration/`：stub，第二階段工作
-- `web/`：極簡骨架（FastAPI health check + schemas 定義），第四階段工作
+- `web/public/`：公開市集網頁極簡骨架（FastAPI health check + schemas 定義），第四階段工作，只給一般使用者用
+- `web/admin/`：目前只有一個說明用的 README，v1 不建這個應用，管理操作全部走 `bot_integration/admin_console.py` 終端機指令（見 design.md 第 3.5 節「公開網頁跟後台管理分開」）
 - `tests/sandbox/`：攻擊測試與資源限制測試目前是 `@pytest.mark.skip` 的空殼，**第一階段必須把這些填滿並拿掉 skip**
 
 ## 接下來的工作順序

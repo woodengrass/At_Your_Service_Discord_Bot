@@ -1,9 +1,7 @@
 import asyncio
 import datetime
-import gzip
 import logging
 import os
-import shutil
 import tempfile
 
 import discord
@@ -25,18 +23,6 @@ class MessageTools(commands.Cog):
     def __init__(self) -> None:
         self.export_lock = asyncio.Lock()
 
-    def _compress_export_file(self, source_path: str, compressed_path: str) -> None:
-        """
-        將單一聊天紀錄分片壓縮成 gzip，降低 Discord 上傳流量。
-
-        Args:
-            source_path: 未壓縮文字分片路徑
-            compressed_path: gzip 輸出路徑
-        """
-        with open(source_path, "rb") as source_file:
-            with gzip.open(compressed_path, "wb", compresslevel=6) as compressed_file:
-                shutil.copyfileobj(source_file, compressed_file, length=64 * 1024)
-
     async def _send_export_chunk(
         self,
         interaction: discord.Interaction,
@@ -44,20 +30,18 @@ class MessageTools(commands.Cog):
         chunk_index: int,
     ) -> None:
         """
-        壓縮並上傳一個聊天紀錄分片，上傳完成後立即刪除本地檔案。
+        上傳一個聊天紀錄分片，上傳完成後立即刪除本地檔案。
 
         Args:
             interaction: 發起匯出的互動物件
-            source_path: 未壓縮文字分片路徑
+            source_path: 文字分片路徑
             chunk_index: 分片序號
         """
-        compressed_path = f"{source_path}.gz"
-        await asyncio.to_thread(self._compress_export_file, source_path, compressed_path)
-        filename = f"chat_log_{interaction.channel.name}_{chunk_index:04d}.txt.gz"
+        filename = f"chat_log_{interaction.channel.name}_{chunk_index:04d}.txt"
         chunk_message = i18n.get_text(
             "messages.export_chunk", interaction.guild.id, index=chunk_index
         )
-        discord_file = discord.File(compressed_path, filename=filename)
+        discord_file = discord.File(source_path, filename=filename)
         try:
             await interaction.channel.send(
                 content=chunk_message,
@@ -65,12 +49,11 @@ class MessageTools(commands.Cog):
             )
         finally:
             discord_file.close()
-            for file_path in (source_path, compressed_path):
-                try:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                except OSError as error:
-                    logger.error(f"刪除聊天匯出暫存檔失敗：{error}", exc_info=True)
+            try:
+                if os.path.exists(source_path):
+                    os.remove(source_path)
+            except OSError as error:
+                logger.error(f"刪除聊天匯出暫存檔失敗：{error}", exc_info=True)
 
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.command(name="delete", description=locale_str("delete"))

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: pytest
+
+  # 只要 diff 動到 sandbox/ 或 capability_api.py 就強制跑一次攻擊測試套件，見 design.md 第 8.5 節
+  sandbox-attack-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            sandbox:
+              - 'sandbox/**'
+              - 'core/capability_api.py'
+      - uses: actions/setup-python@v5
+        if: steps.filter.outputs.sandbox == 'true'
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+        if: steps.filter.outputs.sandbox == 'true'
+      - run: pytest tests/sandbox/test_escape_attempts.py -v
+        if: steps.filter.outputs.sandbox == 'true'

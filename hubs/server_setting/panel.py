@@ -2,8 +2,8 @@
 
 import discord
 
-from core.i18n import i18n
 from core.guild_settings import GuildSettings
+from core.i18n import i18n
 from core.ui_constants import PANEL_TIMEOUT_SECONDS
 from features.delete_log.panel import DeleteLogToggleView
 from features.people_counting.panel import PeopleCountChannelSelect

@@ -62,3 +62,6 @@ config/ticket.json
 
 #臨時輸入資料(例如用來添加已知詐騙圖片的)
 scam_image/
+
+# 本機規劃文件（規範、設計稿、計畫書等，不進版控）
+planning-docs/

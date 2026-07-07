@@ -749,6 +749,36 @@
       "zh-CN": " **防刷屏设定面板**\n请点击下方按钮切换各项检测功能的开关状态。",
       "en-US": " **Anti-Spam Dashboard**\nClick the buttons below to toggle detection modules."
     },
+    "spam_allowed_channel_manage": {
+      "zh-TW": "設定允許頻道",
+      "zh-CN": "设定允许频道",
+      "en-US": "Set Allowed Channels"
+    },
+    "spam_allowed_channel_select": {
+      "zh-TW": "選擇不受防洗版約束的頻道",
+      "zh-CN": "选择不受防刷屏约束的频道",
+      "en-US": "Select channels exempt from anti-spam"
+    },
+    "spam_allowed_channel_clear": {
+      "zh-TW": "清除允許頻道",
+      "zh-CN": "清除允许频道",
+      "en-US": "Clear Allowed Channels"
+    },
+    "spam_allowed_channel_current": {
+      "zh-TW": "**目前允許頻道**：\n{channels}",
+      "zh-CN": "**目前允许频道**：\n{channels}",
+      "en-US": "**Current allowed channels**:\n{channels}"
+    },
+    "spam_allowed_channel_prompt": {
+      "zh-TW": "選擇要排除在防洗版偵測之外的文字頻道。\n\n**目前允許頻道**：\n{channels}",
+      "zh-CN": "选择要排除在防刷屏检测之外的文字频道。\n\n**目前允许频道**：\n{channels}",
+      "en-US": "Select text channels that should be exempt from anti-spam detection.\n\n**Current allowed channels**:\n{channels}"
+    },
+    "spam_allowed_channel_none": {
+      "zh-TW": "尚未設定",
+      "zh-CN": "尚未设定",
+      "en-US": "Not configured"
+    },
     "link_checker": {
       "zh-TW": "連結安全檢查",
       "zh-CN": "链接安全检查",
@@ -2025,6 +2055,16 @@
       "zh-TW": "{feature}已切換為：{status}",
       "zh-CN": "{feature}已切换为：{status}",
       "en-US": "{feature} changed to: {status}"
+    },
+    "spam_allowed_channels_updated": {
+      "zh-TW": "已更新防洗版允許頻道，共 {count} 個頻道。",
+      "zh-CN": "已更新防刷屏允许频道，共 {count} 个频道。",
+      "en-US": "Anti-spam allowed channels updated: {count} channels."
+    },
+    "spam_allowed_channels_cleared": {
+      "zh-TW": "已清除防洗版允許頻道。",
+      "zh-CN": "已清除防刷屏允许频道。",
+      "en-US": "Anti-spam allowed channels cleared."
     }
   }
 }

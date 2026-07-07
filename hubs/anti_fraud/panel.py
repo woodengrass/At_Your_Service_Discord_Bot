@@ -1,6 +1,7 @@
 ﻿import discord
-from core.i18n import i18n
+
 from core.guild_settings import GuildSettings
+from core.i18n import i18n
 from core.ui_constants import PANEL_TIMEOUT_SECONDS
 from features.anti_raid.panel import AntiRaidToggleView
 from features.anti_spam.panel import AntiSpamToggleView
@@ -239,9 +240,7 @@ class AntiFraudSelect(discord.ui.Select):
                 view=HoneypotSettingView(self.guild_id))
         elif selected_value == "spam":
             view = AntiSpamToggleView(self.guild_id)
-            embed = discord.Embed(description=i18n.get_text("ui.spam_dashboard", self.guild_id),
-                                  color=discord.Color.blue())
-            await interaction.response.edit_message(content=None, embed=embed, view=view)
+            await interaction.response.edit_message(content=None, embed=view.get_embed(interaction.guild), view=view)
         elif selected_value == "whitelist":
             await interaction.response.edit_message(
                 content=i18n.get_text("messages.whitelist_menu_title", self.guild_id),

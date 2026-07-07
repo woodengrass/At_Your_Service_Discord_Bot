@@ -6,10 +6,10 @@ from collections import deque
 import discord
 from discord.ext import commands, tasks
 
-from core.config import CONFIG
-from core.i18n import i18n
 from core.audit_log_repository import add_log_entry
+from core.config import CONFIG
 from core.guild_settings import GuildSettings
+from core.i18n import i18n
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,7 @@ CLEANUP_INTERVAL = spam_config.get("cleanup_interval_minutes", 30)
 # 預設開關 (如果 config 沒寫，預設都開啟)
 DEFAULT_MULTI_ENABLED = spam_config.get("enable_multi_channel", True)
 DEFAULT_SAME_ENABLED = spam_config.get("enable_same_channel", True)
+ALLOWED_CHANNEL_IDS_KEY = "allowed_channel_ids"
 
 
 class AntiSpam(commands.Cog):
@@ -70,6 +71,20 @@ class AntiSpam(commands.Cog):
         """
         return GuildSettings.get_log_channel(guild_id)
 
+    def is_allowed_channel(self, channel_id: int, module_config: dict) -> bool:
+        """
+        檢查指定頻道是否被設定為防洗版允許頻道。
+
+        Args:
+            channel_id: 頻道 ID
+            module_config: 防洗版模組設定
+
+        Returns:
+            True 表示該頻道不受防洗版偵測約束
+        """
+        allowed_channel_ids = module_config.get(ALLOWED_CHANNEL_IDS_KEY, [])
+        return str(channel_id) in {str(allowed_channel_id) for allowed_channel_id in allowed_channel_ids}
+
     @tasks.loop(minutes=CLEANUP_INTERVAL)
     async def cleanup_task(self) -> None:
         """
@@ -101,6 +116,9 @@ class AntiSpam(commands.Cog):
         if not module_config.get("enabled", True):
             return
 
+        if self.is_allowed_channel(message.channel.id, module_config):
+            return
+
         if self.is_whitelisted(message.author.id, message.guild.id):
             return
 
@@ -116,7 +134,8 @@ class AntiSpam(commands.Cog):
 
         # 初始化與紀錄
         if history_key not in self.message_history:
-            self.message_history[history_key] = deque(maxlen=max(SPAM_SAME_CHANNEL_THRESHOLD, SPAM_CHANNEL_THRESHOLD) + 5)
+            history_limit = max(SPAM_SAME_CHANNEL_THRESHOLD, SPAM_CHANNEL_THRESHOLD) + 5
+            self.message_history[history_key] = deque(maxlen=history_limit)
 
         self.message_history[history_key].append({
             "content": message.content,
@@ -187,7 +206,11 @@ class AntiSpam(commands.Cog):
         # 1. 禁言
         try:
             if guild.me.guild_permissions.moderate_members:
-                reason_key = "messages.spam_timeout_reason" if spam_type == "multi" else "messages.spam_same_channel_reason"
+                reason_key = (
+                    "messages.spam_timeout_reason"
+                    if spam_type == "multi"
+                    else "messages.spam_same_channel_reason"
+                )
                 reason = i18n.get_text(reason_key, guild.id)
                 await user.timeout(TIMEOUT_DURATION, reason=reason)
                 await add_log_entry(guild.id, user.id, "spam_timeout", reason)

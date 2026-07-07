@@ -1,11 +1,15 @@
 """
 終端機管理指令，比照現有 honeypot-discord-bot 專案的 admin/console.py 模式。
+這是 v1 唯一給平台操作者用的控制介面，跟第 3.4 節的公開市集網頁完全分開，
+滿足第 3.5 節「管理功能不能跟公開網頁共用同一個應用」的安全要求。
 第二、三階段開發重點（外掛安裝管理、配額調整），見 design.md 第 5.4.1 節。
 """
 
 HELP_TEXT = """
 [外掛平台管理工具] 可用指令（直接在終端機輸入後按 Enter）：
   admin plugin list                                          列出所有已上架外掛
+  admin plugin review approve <plugin_id>                    核准待審核外掛，轉為上架狀態
+  admin plugin review reject <plugin_id> <reason>             退回待審核外掛並記錄原因
   admin plugin install <guild_id> <plugin_id>                 安裝外掛到指定伺服器
   admin plugin uninstall <guild_id> <plugin_id>               從指定伺服器移除外掛
   admin plugin suspend <plugin_id>                            停權指定外掛（跨所有安裝）

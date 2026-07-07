@@ -1,5 +1,7 @@
 """
-Pydantic 請求/回應驗證模型，第四階段開發重點，見 design.md 第 6.4 節列出的五個必要模型。
+Pydantic 請求/回應驗證模型，第四階段開發重點，見 design.md 第 6.4 節列出的必要模型。
+只涵蓋一般使用者能做的操作——審核（PluginReviewDecision）屬於平台操作者的動作，
+不放在這個公開網頁後端，定義在獨立的 web/admin/backend/schemas.py（見 design.md 第 3.5、6.3 節）。
 """
 
 from pydantic import BaseModel
@@ -13,12 +15,6 @@ class PluginSubmissionRequest(BaseModel):
 class PluginSubmissionResponse(BaseModel):
     plugin_id: str
     status: str
-
-
-class PluginReviewDecision(BaseModel):
-    plugin_id: str
-    approved: bool
-    reason: str | None = None
 
 
 class PluginInstallationRequest(BaseModel):

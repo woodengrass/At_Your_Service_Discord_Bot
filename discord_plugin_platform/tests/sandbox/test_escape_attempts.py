@@ -5,30 +5,114 @@
 
 import pytest
 
+from sandbox.engine import SandboxExecutionError, create_sandbox_runtime, execute_untrusted_code
 
-@pytest.mark.skip(reason="待第一階段 sandbox/engine.py 完成後撰寫")
+
 def test_cannot_reach_global_table_via_debug_library():
     """
     嘗試透過 debug.getupvalue/getmetatable/getfenv 爬回原始環境，確認拿不到 _G。
+    debug 函式庫本身應該已經被清空全域表時移除，所以第一步就會失敗。
     """
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="debug"):
+        execute_untrusted_code(runtime, "local d = debug.getinfo(1)")
 
 
-@pytest.mark.skip(reason="待第一階段 sandbox/engine.py 完成後撰寫")
 def test_load_and_loadstring_are_disabled():
     """
     嘗試呼叫 load/loadstring 動態載入程式碼，確認被擋下。
     """
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="load"):
+        execute_untrusted_code(runtime, "local f = load('return 1')")
+
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="loadstring"):
+        execute_untrusted_code(runtime, "local f = loadstring('return 1')")
 
 
-@pytest.mark.skip(reason="待第一階段 sandbox/engine.py 完成後撰寫")
 def test_lupa_python_bridge_is_disabled():
     """
-    嘗試透過 python.eval 或傳入物件的屬性存取呼叫回 Python 層，確認完全不可行。
+    嘗試透過 python.eval 呼叫回 Python 層，確認完全不可行
+    （LuaRuntime 建立時已經 register_eval=False, register_builtins=False）。
     """
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="python"):
+        execute_untrusted_code(runtime, "python.eval('1')")
 
 
-@pytest.mark.skip(reason="待第一階段 sandbox/engine.py 完成後撰寫")
 def test_single_call_memory_bomb_is_capped():
     """
-    嘗試用 string.rep 之類的單一呼叫瞬間分配大量記憶體，確認有另外的參數大小上限攔截。
+    嘗試用 string.rep 之類的單一呼叫瞬間分配大量記憶體，確認資源限制鉤子仍然攔截得到
+    （鉤子每 HOOK_CHECK_INTERVAL 條指令檢查一次記憶體用量，string.rep 本身執行時也會計入指令數）。
     """
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError):
+        execute_untrusted_code(
+            runtime,
+            """
+            local chunks = {}
+            for i = 1, 10000 do
+                chunks[i] = string.rep("x", 1024 * 1024)
+            end
+            """,
+        )
+
+
+def test_coroutine_hook_bypass_is_disabled():
+    """
+    第 6 種逃逸手法：debug.sethook 安裝的鉤子預設只作用在主執行緒，
+    若外掛能開 coroutine 在裡面跑無窮迴圈就能完全繞過步數限制。
+    因此 coroutine 從一開始就不在白名單內，這裡確認拿不到 coroutine 函式庫。
+    """
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="coroutine"):
+        execute_untrusted_code(runtime, "local co = coroutine.create(function() end)")
+
+
+def test_pcall_hook_error_swallowing_is_disabled():
+    """
+    第 7 種逃逸手法：資源限制鉤子是靠呼叫 error() 中止執行，
+    若外掛能用 pcall 包住無窮迴圈接住這個 error，就能無限重新進入迴圈、完全繞過步數上限。
+    因此 pcall/xpcall 從白名單移除，這裡確認拿不到 pcall/xpcall。
+    """
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="pcall"):
+        execute_untrusted_code(
+            runtime,
+            """
+            local function forever() while true do end end
+            while true do pcall(forever) end
+            """,
+        )
+
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="xpcall"):
+        execute_untrusted_code(runtime, "xpcall(function() end, function() end)")
+
+
+def test_os_and_io_libraries_are_disabled():
+    """
+    確認 os、io、require 這幾個能直接觸及檔案系統/行程的函式庫也不在白名單內。
+    """
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="os"):
+        execute_untrusted_code(runtime, "os.execute('echo test')")
+
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="io"):
+        execute_untrusted_code(runtime, "io.open('test.txt', 'w')")
+
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="require"):
+        execute_untrusted_code(runtime, "require('os')")
+
+
+def test_collectgarbage_is_disabled():
+    """
+    確認外掛程式碼本身拿不到 collectgarbage，避免用 collectgarbage("stop") 關掉 GC
+    來繞過記憶體上限檢查（資源限制鉤子內部透過 local upvalue 保留自己的參照，不受影響）。
+    """
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="collectgarbage"):
+        execute_untrusted_code(runtime, "collectgarbage('stop')")

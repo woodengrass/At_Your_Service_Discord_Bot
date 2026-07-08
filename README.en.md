@@ -69,7 +69,7 @@ To summarize a conversation, reply to its starting message and mention the bot. 
 
 ```powershell
 git clone <repository-url>
-cd honeypot-discord-bot
+cd At_Your_Service_Discord_Bot
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip

@@ -1,8 +1,11 @@
+import datetime
 import json
 import logging
 import time
 
-from core import quota, repository, suspension
+import discord
+
+from core import bot_registry, quota, repository, suspension
 from core.capability_api import CAPABILITY_OWNERS
 from sandbox.worker import execute_plugin_event
 
@@ -131,11 +134,200 @@ async def _execute_actions(guild_id: int, actions: list[dict]) -> None:
     """
     依序真正執行動作清單裡的每個動作，呼叫真正的 Discord API。
 
+    單一動作失敗（例如頻道/成員/訊息已經不存在）只記錄錯誤並繼續處理其餘動作，
+    不會因為其中一項失敗就讓整批已通過驗證的動作全部中止。
+
     Args:
         guild_id: 伺服器 ID
         actions: 已通過驗證的動作清單
-
-    Raises:
-        NotImplementedError: 待 bot_integration/listeners.py 接上真正的 discord.py bot 實例後實作
     """
-    raise NotImplementedError("待 bot_integration 完成後接上真正的 Discord API 呼叫")
+    bot = bot_registry.get_bot()
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        logger.error(f"執行動作時找不到伺服器（guild_id={guild_id}），機器人可能已被移出")
+        return
+
+    for action in actions:
+        handler = _ACTION_HANDLERS.get(action["type"])
+        if handler is None:
+            logger.error(f"未知的動作類型，略過（guild_id={guild_id}，action={action}）")
+            continue
+        try:
+            await handler(guild, action["params"])
+        except Exception as error:
+            logger.error(f"執行動作失敗（guild_id={guild_id}，action={action}）：{error}", exc_info=True)
+
+
+def _build_embed(embed_params: dict | None) -> discord.Embed | None:
+    """
+    把能力函式傳來的 embed 參數轉成 discord.Embed，對應附錄 A.2.1 的欄位（標題/描述/顏色/圖片網址）。
+
+    Args:
+        embed_params: dict 或 None
+
+    Returns:
+        discord.Embed，embed_params 是 None 時回傳 None
+    """
+    if not embed_params:
+        return None
+    embed = discord.Embed(
+        title=embed_params.get("title"),
+        description=embed_params.get("description"),
+        color=embed_params.get("color"),
+    )
+    image_url = embed_params.get("image_url")
+    if image_url:
+        embed.set_image(url=image_url)
+    return embed
+
+
+def _build_view(buttons_params: list | None) -> discord.ui.View | None:
+    """
+    把能力函式傳來的 buttons 參數轉成 discord.ui.View。
+
+    Args:
+        buttons_params: list of {"label": str, "custom_id": str, "style": str}，或 None
+
+    Returns:
+        discord.ui.View，buttons_params 是 None 或空清單時回傳 None
+    """
+    if not buttons_params:
+        return None
+    view = discord.ui.View(timeout=None)
+    for button_params in buttons_params:
+        style = getattr(discord.ButtonStyle, button_params.get("style", "primary"), discord.ButtonStyle.primary)
+        view.add_item(
+            discord.ui.Button(
+                label=button_params.get("label", ""),
+                style=style,
+                custom_id=button_params.get("custom_id"),
+            )
+        )
+    return view
+
+
+async def _handle_send_message(guild: discord.Guild, params: dict) -> None:
+    channel = guild.get_channel(params["channel_id"])
+    if channel is None:
+        return
+    await channel.send(
+        content=params.get("content"),
+        embed=_build_embed(params.get("embed")),
+        view=_build_view(params.get("buttons")),
+    )
+
+
+async def _handle_reply_message(guild: discord.Guild, params: dict) -> None:
+    channel = guild.get_channel(params["channel_id"])
+    if channel is None:
+        return
+    message = await channel.fetch_message(params["message_id"])
+    await message.reply(
+        content=params.get("content"),
+        embed=_build_embed(params.get("embed")),
+        view=_build_view(params.get("buttons")),
+    )
+
+
+async def _handle_edit_message(guild: discord.Guild, params: dict) -> None:
+    channel = guild.get_channel(params["channel_id"])
+    if channel is None:
+        return
+    message = await channel.fetch_message(params["message_id"])
+    await message.edit(content=params.get("content"), embed=_build_embed(params.get("embed")))
+
+
+async def _handle_pin_message(guild: discord.Guild, params: dict) -> None:
+    channel = guild.get_channel(params["channel_id"])
+    if channel is None:
+        return
+    message = await channel.fetch_message(params["message_id"])
+    await message.pin()
+
+
+async def _handle_unpin_message(guild: discord.Guild, params: dict) -> None:
+    channel = guild.get_channel(params["channel_id"])
+    if channel is None:
+        return
+    message = await channel.fetch_message(params["message_id"])
+    await message.unpin()
+
+
+async def _handle_send_poll(guild: discord.Guild, params: dict) -> None:
+    channel = guild.get_channel(params["channel_id"])
+    if channel is None:
+        return
+    poll = discord.Poll(question=params["question"], duration=datetime.timedelta(hours=params["duration"]))
+    for option in params["options"]:
+        poll.add_answer(text=option)
+    await channel.send(poll=poll)
+
+
+async def _handle_delete_message(guild: discord.Guild, params: dict) -> None:
+    channel = guild.get_channel(params["channel_id"])
+    if channel is None:
+        return
+    message = await channel.fetch_message(params["message_id"])
+    await message.delete()
+
+
+async def _handle_add_role(guild: discord.Guild, params: dict) -> None:
+    member = guild.get_member(params["user_id"])
+    role = guild.get_role(params["role_id"])
+    if member is None or role is None:
+        return
+    await member.add_roles(role)
+
+
+async def _handle_remove_role(guild: discord.Guild, params: dict) -> None:
+    member = guild.get_member(params["user_id"])
+    role = guild.get_role(params["role_id"])
+    if member is None or role is None:
+        return
+    await member.remove_roles(role)
+
+
+async def _handle_set_nickname(guild: discord.Guild, params: dict) -> None:
+    member = guild.get_member(params["user_id"])
+    if member is None:
+        return
+    await member.edit(nick=params["nickname"])
+
+
+async def _handle_timeout_member(guild: discord.Guild, params: dict) -> None:
+    member = guild.get_member(params["user_id"])
+    if member is None:
+        return
+    until = discord.utils.utcnow() + datetime.timedelta(seconds=params["duration_seconds"])
+    await member.timeout(until, reason=params.get("reason"))
+
+
+async def _handle_create_thread(guild: discord.Guild, params: dict) -> None:
+    channel = guild.get_channel(params["channel_id"])
+    if channel is None:
+        return
+    await channel.create_thread(name=params["name"], type=discord.ChannelType.public_thread)
+
+
+async def _handle_archive_thread(guild: discord.Guild, params: dict) -> None:
+    thread = guild.get_thread(params["thread_id"])
+    if thread is None:
+        return
+    await thread.edit(archived=True)
+
+
+_ACTION_HANDLERS = {
+    "send_message": _handle_send_message,
+    "reply_message": _handle_reply_message,
+    "edit_message": _handle_edit_message,
+    "pin_message": _handle_pin_message,
+    "unpin_message": _handle_unpin_message,
+    "send_poll": _handle_send_poll,
+    "delete_message": _handle_delete_message,
+    "add_role": _handle_add_role,
+    "remove_role": _handle_remove_role,
+    "set_nickname": _handle_set_nickname,
+    "timeout_member": _handle_timeout_member,
+    "create_thread": _handle_create_thread,
+    "archive_thread": _handle_archive_thread,
+}

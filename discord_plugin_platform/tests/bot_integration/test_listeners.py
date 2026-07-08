@@ -199,7 +199,7 @@ async def test_consume_due_scheduled_tasks_deletes_and_updates(monkeypatch) -> N
                 "guild_id": 1111,
                 "plugin_id": "temp_role_punishment",
                 "run_at": "2026-01-01T00:00:00+00:00",
-                "payload_json": '{"kind":"single"}',
+                "payload_json": '{"task_name":"single_restore","payload":{"kind":"single"}}',
                 "recurring_interval_seconds": None,
             },
             {
@@ -207,7 +207,7 @@ async def test_consume_due_scheduled_tasks_deletes_and_updates(monkeypatch) -> N
                 "guild_id": 1111,
                 "plugin_id": "temp_role_punishment",
                 "run_at": "2026-01-01T00:00:00+00:00",
-                "payload_json": '{"kind":"recurring"}',
+                "payload_json": '{"task_name":"recurring_restore","payload":{"kind":"recurring"}}',
                 "recurring_interval_seconds": 60,
             },
         ]
@@ -232,5 +232,7 @@ async def test_consume_due_scheduled_tasks_deletes_and_updates(monkeypatch) -> N
     await cog.consume_due_scheduled_tasks()
 
     assert [event[1] for event in captured_events] == ["on_scheduled_task", "on_scheduled_task"]
+    assert captured_events[0][2] == {"task_name": "single_restore", "payload": {"kind": "single"}}
+    assert captured_events[1][2] == {"task_name": "recurring_restore", "payload": {"kind": "recurring"}}
     assert deleted_task_ids == ["single_task"]
     assert updated_tasks == [("recurring_task", "2026-01-01T00:01:00+00:00")]

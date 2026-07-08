@@ -4,6 +4,7 @@
 """
 
 import datetime
+import json
 import logging
 
 import discord
@@ -220,12 +221,13 @@ class PluginPlatformListeners(commands.Cog):
         due_tasks = await repository.get_due_scheduled_tasks(now.isoformat())
         for scheduled_task in due_tasks:
             try:
+                task_payload = json.loads(scheduled_task["payload_json"])
                 await dispatch_event(
                     scheduled_task["guild_id"],
                     "on_scheduled_task",
                     {
-                        "task_name": scheduled_task["task_id"],
-                        "payload": scheduled_task["payload_json"],
+                        "task_name": task_payload["task_name"],
+                        "payload": task_payload["payload"],
                     },
                 )
                 recurring_interval_seconds = scheduled_task["recurring_interval_seconds"]

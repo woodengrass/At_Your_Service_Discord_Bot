@@ -261,14 +261,29 @@ def _build_message_functions(context: ExecutionContext) -> dict[str, Callable]:
         "send_message": lambda channel_id, content, embed=None, buttons=None: context.queue_action(
             "send_message", {"channel_id": channel_id, "content": content, "embed": embed, "buttons": buttons}
         ),
-        "reply_message": lambda message_id, content, embed=None, buttons=None: context.queue_action(
-            "reply_message", {"message_id": message_id, "content": content, "embed": embed, "buttons": buttons}
+        # reply_message/edit_message/pin_message/unpin_message 都多帶了 channel_id（附錄 A.2.1
+        # 原本只有 message_id）：discord.py 沒有「只憑 message_id 跨頻道查訊息」的 API，一定要先
+        # 知道頻道才能 fetch_message()；這是接 core/dispatcher.py 的 _execute_actions() 時才發現的
+        # 缺口，若不補這個參數，宿主端只能挨個把整個伺服器的頻道都掃過一輪找訊息，既慢又不可靠。
+        "reply_message": lambda channel_id, message_id, content, embed=None, buttons=None: context.queue_action(
+            "reply_message",
+            {
+                "channel_id": channel_id,
+                "message_id": message_id,
+                "content": content,
+                "embed": embed,
+                "buttons": buttons,
+            },
         ),
-        "edit_message": lambda message_id, content, embed=None: context.queue_action(
-            "edit_message", {"message_id": message_id, "content": content, "embed": embed}
+        "edit_message": lambda channel_id, message_id, content, embed=None: context.queue_action(
+            "edit_message", {"channel_id": channel_id, "message_id": message_id, "content": content, "embed": embed}
         ),
-        "pin_message": lambda message_id: context.queue_action("pin_message", {"message_id": message_id}),
-        "unpin_message": lambda message_id: context.queue_action("unpin_message", {"message_id": message_id}),
+        "pin_message": lambda channel_id, message_id: context.queue_action(
+            "pin_message", {"channel_id": channel_id, "message_id": message_id}
+        ),
+        "unpin_message": lambda channel_id, message_id: context.queue_action(
+            "unpin_message", {"channel_id": channel_id, "message_id": message_id}
+        ),
         "send_poll": lambda channel_id, question, options, duration: context.queue_action(
             "send_poll", {"channel_id": channel_id, "question": question, "options": options, "duration": duration}
         ),

@@ -157,7 +157,7 @@ def run_with_limits(runtime: lua54.LuaRuntime, lua_function_name: str, payload: 
         raise SandboxExecutionError(f"外掛沒有定義事件處理函式：{lua_function_name}")
 
     try:
-        lua_function(runtime.table_from(payload))
+        lua_function(runtime.table_from(payload, recursive=True))
     except Exception as error:
         raise SandboxExecutionError(str(error)) from error
 

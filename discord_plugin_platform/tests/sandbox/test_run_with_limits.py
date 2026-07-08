@@ -31,6 +31,36 @@ def test_actions_are_collected_and_nested_tables_become_python_dicts():
     ]
 
 
+def test_nested_payload_is_a_real_lua_table_not_opaque_object():
+    """
+    payload 裡的巢狀 list/dict（例如 on_slash_command 的 options 陣列）必須轉成真正的
+    Lua table，不能是不透明的 POBJECT，否則外掛用 ipairs()/# 走訪就會直接壞掉
+    （實測套用範例外掛 plugins_examples/temp_role_punishment 時才抓到：沒有
+    recursive=True 時，ipairs(payload.options) 會丟出 IndexError 而不是正常停止）。
+    """
+    runtime = create_sandbox_runtime()
+    execute_untrusted_code(
+        runtime,
+        """
+        function on_slash_command(payload)
+            local names = {}
+            for _, option in ipairs(payload.options) do
+                table.insert(names, option.name)
+            end
+            _action_queue = {{type = "result", params = {count = #payload.options, names = names}}}
+        end
+        """,
+    )
+    actions = run_with_limits(
+        runtime,
+        "on_slash_command",
+        {"options": [{"name": "user_id", "value": "1"}, {"name": "duration", "value": "60"}]},
+    )
+    assert actions == [
+        {"type": "result", "params": {"count": 2, "names": ["user_id", "duration"]}}
+    ]
+
+
 def test_missing_event_handler_raises():
     """
     外掛沒有定義對應的事件處理函式時，應該拋出明確的錯誤而不是讓呼叫端拿到 TypeError。

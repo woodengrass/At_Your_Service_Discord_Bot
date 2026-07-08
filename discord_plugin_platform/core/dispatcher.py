@@ -3,9 +3,10 @@ import json
 import logging
 import time
 
+import aiosqlite
 import discord
 
-from core import bot_registry, quota, repository, suspension
+from core import bot_registry, database, quota, repository, suspension
 from core.capability_api import CAPABILITY_OWNERS
 from sandbox.worker import execute_plugin_event
 
@@ -13,6 +14,25 @@ logger = logging.getLogger(__name__)
 
 EXECUTION_TIMEOUT_SECONDS = 2  # 暫定值，待第二階段實測後校準，見 design.md 第 5.4 節
 MAX_ACTIONS_PER_EXECUTION = 20
+
+# storage/schedule_task 能力在外掛執行期間就會直接寫進 SQLite（見
+# core/plugin_storage_repository.py），但這次分派最後可能被 _validate_actions()
+# 判定失敗，或外掛執行本身崩潰——這兩種情況代表這次執行不可信任，連同已經寫入
+# 的 storage/schedule_task 都要一起回退，不能留下「授權被拒但 side effect 已經
+# 發生」的不一致狀態（quota_exceeded 或個別動作執行失敗不算，那只是操作性問題，
+# 不代表這次執行有問題，見 design.md 附錄 A.2.3 的說明）。
+#
+# 原本用「全域 asyncio.Lock() + SQLite SAVEPOINT」做這件事，但實測發現一個
+# 根本性的缺陷：SQLite 的交易狀態是連線層級的，不是「哪個 coroutine 開的」
+# 層級。全平台共用同一條連線，鎖只能讓「兩個都要開 SAVEPOINT 的安裝」互相排隊，
+# 完全擋不住任何其他不相關的 db.commit()（例如同一次分派迴圈裡，另一個外掛
+# 執行成功後呼叫的 log_execution(outcome="success")，這個呼叫在鎖釋放之後才
+# 執行、不受保護）——只要在 SAVEPOINT 開著的當下，任何地方對共用連線呼叫一次
+# commit()，就會把這個 SAVEPOINT 直接沖掉。改成這次分派需要用到 storage/
+# schedule_task 能力時，開一條專用連線，交易狀態完全跟共用連線分開，不需要
+# SAVEPOINT 也不需要全域鎖，見 design.md 第 5.4.2 節。
+_STORAGE_CAPABILITY_NAMES = {"storage", "schedule_task"}
+_EXECUTION_DB_BUSY_TIMEOUT_MS = 5000
 
 _ACTION_PARAM_KEYS = {
     "send_message": ({"channel_id", "content"}, {"channel_id", "content", "embed", "buttons"}),
@@ -32,6 +52,20 @@ _ACTION_PARAM_KEYS = {
     "create_thread": ({"channel_id", "name"}, {"channel_id", "name"}),
     "archive_thread": ({"thread_id"}, {"thread_id"}),
 }
+
+
+async def _open_execution_db() -> aiosqlite.Connection:
+    """
+    為一次有 storage/schedule_task 能力的外掛執行開一條專用連線，交易狀態
+    跟平台共用的連線完全分開，見 design.md 第 5.4.2 節。
+
+    Returns:
+        新開的連線，已設定 busy_timeout；呼叫端用完後要負責 commit/rollback
+        再 close()，這裡不做
+    """
+    execution_db = await aiosqlite.connect(database.DB_PATH)
+    await execution_db.execute(f"PRAGMA busy_timeout = {_EXECUTION_DB_BUSY_TIMEOUT_MS}")
+    return execution_db
 
 
 async def dispatch_event(
@@ -88,31 +122,46 @@ async def dispatch_event(
             continue
 
         granted_capabilities = set(json.loads(installation["granted_capabilities_json"]))
+        needs_storage_transaction = bool(granted_capabilities & _STORAGE_CAPABILITY_NAMES)
         started_at = time.monotonic()
+
+        execution_db = await _open_execution_db() if needs_storage_transaction else None
         try:
-            actions = await execute_plugin_event(
-                guild_id=guild_id,
-                plugin_id=plugin_id,
-                source_code=source_code,
-                event_type=event_type,
-                event_payload=event_payload,
-                granted_capabilities=granted_capabilities,
-            )
-        except Exception as error:
+            try:
+                actions = await execute_plugin_event(
+                    guild_id=guild_id,
+                    plugin_id=plugin_id,
+                    source_code=source_code,
+                    event_type=event_type,
+                    event_payload=event_payload,
+                    granted_capabilities=granted_capabilities,
+                    execution_db=execution_db,
+                )
+            except Exception as error:
+                execution_ms = int((time.monotonic() - started_at) * 1000)
+                logger.error(f"外掛執行失敗（plugin_id={plugin_id}）：{error}", exc_info=True)
+                if execution_db is not None:
+                    await execution_db.rollback()
+                await repository.log_execution(
+                    guild_id, plugin_id, event_type, "[]", execution_ms, "crashed", str(error)
+                )
+                continue
+
             execution_ms = int((time.monotonic() - started_at) * 1000)
-            logger.error(f"外掛執行失敗（plugin_id={plugin_id}）：{error}", exc_info=True)
-            await repository.log_execution(
-                guild_id, plugin_id, event_type, "[]", execution_ms, "crashed", str(error)
-            )
-            continue
 
-        execution_ms = int((time.monotonic() - started_at) * 1000)
+            if not _validate_actions(installation, actions):
+                if execution_db is not None:
+                    await execution_db.rollback()
+                await repository.log_execution(
+                    guild_id, plugin_id, event_type, "[]", execution_ms, "rejected_invalid_action"
+                )
+                continue
 
-        if not _validate_actions(installation, actions):
-            await repository.log_execution(
-                guild_id, plugin_id, event_type, "[]", execution_ms, "rejected_invalid_action"
-            )
-            continue
+            if execution_db is not None:
+                await execution_db.commit()
+        finally:
+            if execution_db is not None:
+                await execution_db.close()
 
         if actions and not await quota.check_and_consume_action_quota(guild_id, plugin_id, len(actions)):
             await repository.log_execution(guild_id, plugin_id, event_type, "[]", execution_ms, "quota_exceeded")

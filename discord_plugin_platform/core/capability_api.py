@@ -5,6 +5,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+import aiosqlite
 import discord
 
 from core import plugin_storage_repository
@@ -85,6 +86,15 @@ class ExecutionContext:
     同步等待結果，藉此在不違反 Lua 呼叫必須是同步函式這個限制下，
     安全地共用同一個 aiosqlite 連線與同一個 discord.py Client，
     不需要另外為沙箱開一條獨立的資料庫連線或行程。
+
+    `execution_db` 是例外：只有這次安裝有 `storage`／`schedule_task` 能力時，
+    `core/dispatcher.py` 才會開一條這次執行專用的連線傳進來，storage/schedule
+    相關的能力函式要用這條連線，不是上面說的共用連線——這樣 dispatcher 才能
+    在驗證動作清單之後，依結果決定 commit 或 rollback 這次執行寫入的資料，
+    不會被平台上其他地方對共用連線的 commit() 干擾（原本用 SAVEPOINT 做這件事，
+    實測發現 SQLite 的交易狀態是連線層級的，任何地方對共用連線的 commit() 都會
+    把 SAVEPOINT 沖掉，因此改成這次執行專用的獨立連線，見 design.md 第 5.4.2 節）。
+    沒有這兩個能力的安裝，這個欄位是 None，storage/schedule 函式根本不會被綁進去。
     """
 
     guild_id: int
@@ -92,6 +102,7 @@ class ExecutionContext:
     granted_capabilities: set[str]
     bot: discord.Client
     event_loop: asyncio.AbstractEventLoop
+    execution_db: aiosqlite.Connection | None = None
     action_queue: list[dict[str, Any]] = field(default_factory=list)
 
     def has_capability(self, capability_name: str | None) -> bool:
@@ -306,13 +317,21 @@ def _build_schedule_functions(context: ExecutionContext) -> dict[str, Callable]:
     ) -> str:
         return context.run_coroutine_sync(
             plugin_storage_repository.create_scheduled_task(
-                context.guild_id, context.plugin_id, delay_seconds, task_name, payload, recurring_interval_seconds
+                context.guild_id,
+                context.plugin_id,
+                delay_seconds,
+                task_name,
+                payload,
+                recurring_interval_seconds,
+                db=context.execution_db,
             )
         )
 
     def cancel_scheduled_task(task_id: str) -> bool:
         return context.run_coroutine_sync(
-            plugin_storage_repository.cancel_scheduled_task(context.guild_id, context.plugin_id, task_id)
+            plugin_storage_repository.cancel_scheduled_task(
+                context.guild_id, context.plugin_id, task_id, db=context.execution_db
+            )
         )
 
     return {"schedule_task": schedule_task, "cancel_scheduled_task": cancel_scheduled_task}
@@ -331,27 +350,35 @@ def _build_storage_functions(context: ExecutionContext) -> dict[str, Callable]:
 
     def storage_get(key: str) -> Any:
         return context.run_coroutine_sync(
-            plugin_storage_repository.storage_get(context.guild_id, context.plugin_id, key)
+            plugin_storage_repository.storage_get(context.guild_id, context.plugin_id, key, db=context.execution_db)
         )
 
     def storage_set(key: str, value: Any) -> None:
         context.run_coroutine_sync(
-            plugin_storage_repository.storage_set(context.guild_id, context.plugin_id, key, value)
+            plugin_storage_repository.storage_set(
+                context.guild_id, context.plugin_id, key, value, db=context.execution_db
+            )
         )
 
     def storage_delete(key: str) -> None:
         context.run_coroutine_sync(
-            plugin_storage_repository.storage_delete(context.guild_id, context.plugin_id, key)
+            plugin_storage_repository.storage_delete(
+                context.guild_id, context.plugin_id, key, db=context.execution_db
+            )
         )
 
     def storage_list_keys(prefix: str = "") -> list[str]:
         return context.run_coroutine_sync(
-            plugin_storage_repository.storage_list_keys(context.guild_id, context.plugin_id, prefix)
+            plugin_storage_repository.storage_list_keys(
+                context.guild_id, context.plugin_id, prefix, db=context.execution_db
+            )
         )
 
     def storage_get_leaderboard(prefix: str, limit: int) -> list[dict]:
         return context.run_coroutine_sync(
-            plugin_storage_repository.storage_get_leaderboard(context.guild_id, context.plugin_id, prefix, limit)
+            plugin_storage_repository.storage_get_leaderboard(
+                context.guild_id, context.plugin_id, prefix, limit, db=context.execution_db
+            )
         )
 
     return {

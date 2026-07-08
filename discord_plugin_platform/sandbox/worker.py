@@ -5,6 +5,8 @@
 
 import asyncio
 
+import aiosqlite
+
 from core.bot_registry import get_bot
 from core.capability_api import ExecutionContext
 from sandbox.capability_bindings import bind_capabilities
@@ -18,6 +20,7 @@ async def execute_plugin_event(
     event_type: str,
     event_payload: dict,
     granted_capabilities: set[str],
+    execution_db: aiosqlite.Connection | None = None,
 ) -> list[dict]:
     """
     執行單次外掛事件分派的完整流程：建立 VM → 綁定能力 → 在背景執行緒載入外掛
@@ -30,6 +33,12 @@ async def execute_plugin_event(
         event_type: 觸發的事件名稱，對應 Lua 裡的同名函式（例如 on_message）
         event_payload: 事件資料
         granted_capabilities: 這次安裝授權的能力旗標集合
+        execution_db: 這次執行專用的資料庫連線，只有這次安裝有 storage／
+            schedule_task 能力時 core/dispatcher.py 才會傳入；storage/schedule
+            相關的能力函式會用這條連線而不是共用連線，讓 dispatcher 事後可以依
+            驗證結果決定 commit 或 rollback，不會被平台上其他地方的 commit()
+            干擾（見 design.md 第 5.4.2 節，SAVEPOINT 方案已證實有此問題被放棄）。
+            None 代表這次安裝沒有這兩個能力，storage/schedule 函式根本不會被綁進去。
 
     Returns:
         動作清單，格式見 design.md 第 3.2 節「動作清單格式」
@@ -54,6 +63,7 @@ async def execute_plugin_event(
         granted_capabilities=granted_capabilities,
         bot=get_bot(),
         event_loop=asyncio.get_running_loop(),
+        execution_db=execution_db,
     )
 
     runtime = create_sandbox_runtime()

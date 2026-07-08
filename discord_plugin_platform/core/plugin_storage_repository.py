@@ -12,6 +12,8 @@ import time
 import uuid
 from typing import Any
 
+import aiosqlite
+
 from core.database import get_db
 
 # storage 能力沒有任何大小/數量上限的話，外掛可以把 SQLite 當成無限儲存空間濫用
@@ -66,7 +68,7 @@ def _escape_like_pattern(prefix: str) -> str:
     return prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-async def storage_get(guild_id: int, plugin_id: str, key: str) -> Any:
+async def storage_get(guild_id: int, plugin_id: str, key: str, db: aiosqlite.Connection | None = None) -> Any:
     """
     讀取外掛專屬的 KV 資料，以 (guild_id, plugin_id, key) 隔離。
 
@@ -74,11 +76,14 @@ async def storage_get(guild_id: int, plugin_id: str, key: str) -> Any:
         guild_id: 伺服器 ID
         plugin_id: 外掛 ID
         key: 資料鍵值
+        db: 指定要用哪條連線，None 代表用共用連線。外掛執行期間呼叫時，
+            這裡要跟 storage_set() 用同一條執行專用連線，才能讀到「自己這次
+            執行剛寫的值」（見 design.md 第 5.4.2 節）。
 
     Returns:
         對應的值（已還原成原本的 JSON 型別）；找不到則回傳 None
     """
-    db = get_db()
+    db = db or get_db()
     async with db.execute(
         "SELECT value_json FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key = ?",
         (guild_id, plugin_id, key),
@@ -89,7 +94,9 @@ async def storage_get(guild_id: int, plugin_id: str, key: str) -> Any:
     return json.loads(row[0])
 
 
-async def storage_set(guild_id: int, plugin_id: str, key: str, value: Any) -> None:
+async def storage_set(
+    guild_id: int, plugin_id: str, key: str, value: Any, db: aiosqlite.Connection | None = None
+) -> None:
     """
     寫入外掛專屬的 KV 資料，key 已存在則覆蓋。
 
@@ -98,6 +105,9 @@ async def storage_set(guild_id: int, plugin_id: str, key: str, value: Any) -> No
         plugin_id: 外掛 ID
         key: 資料鍵值
         value: 要儲存的值，必須是可以 JSON 序列化的型別
+        db: 這次執行專用的連線（有 storage 能力時由 core/dispatcher.py 準備），
+            None 代表用共用連線，交易邊界（commit／rollback）一律由呼叫端決定，
+            這裡不呼叫 commit()，見 design.md 第 5.4.2 節
 
     Raises:
         StorageLimitExceededError: key 長度、value 大小超過上限，或這個安裝已經用滿
@@ -110,7 +120,7 @@ async def storage_set(guild_id: int, plugin_id: str, key: str, value: Any) -> No
     if len(value_json.encode("utf-8")) > MAX_STORAGE_VALUE_BYTES:
         raise StorageLimitExceededError(f"value 大小超過上限（{MAX_STORAGE_VALUE_BYTES} bytes）")
 
-    db = get_db()
+    db = db or get_db()
     async with db.execute(
         "SELECT 1 FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key = ?",
         (guild_id, plugin_id, key),
@@ -137,10 +147,9 @@ async def storage_set(guild_id: int, plugin_id: str, key: str, value: Any) -> No
         """,
         (guild_id, plugin_id, key, value_json, _now_iso()),
     )
-    await db.commit()
 
 
-async def storage_delete(guild_id: int, plugin_id: str, key: str) -> None:
+async def storage_delete(guild_id: int, plugin_id: str, key: str, db: aiosqlite.Connection | None = None) -> None:
     """
     刪除外掛專屬的 KV 資料，key 不存在時安靜跳過。
 
@@ -148,16 +157,18 @@ async def storage_delete(guild_id: int, plugin_id: str, key: str) -> None:
         guild_id: 伺服器 ID
         plugin_id: 外掛 ID
         key: 資料鍵值
+        db: 同 storage_set() 的說明
     """
-    db = get_db()
+    db = db or get_db()
     await db.execute(
         "DELETE FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key = ?",
         (guild_id, plugin_id, key),
     )
-    await db.commit()
 
 
-async def storage_list_keys(guild_id: int, plugin_id: str, prefix: str) -> list[str]:
+async def storage_list_keys(
+    guild_id: int, plugin_id: str, prefix: str, db: aiosqlite.Connection | None = None
+) -> list[str]:
     """
     列舉指定前綴的所有 key。
 
@@ -165,11 +176,12 @@ async def storage_list_keys(guild_id: int, plugin_id: str, prefix: str) -> list[
         guild_id: 伺服器 ID
         plugin_id: 外掛 ID
         prefix: key 前綴，空字串代表列出全部
+        db: 同 storage_set() 的說明
 
     Returns:
         符合前綴的 key 清單
     """
-    db = get_db()
+    db = db or get_db()
     async with db.execute(
         "SELECT key FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key LIKE ? ESCAPE '\\'",
         (guild_id, plugin_id, _escape_like_pattern(prefix) + "%"),
@@ -178,7 +190,9 @@ async def storage_list_keys(guild_id: int, plugin_id: str, prefix: str) -> list[
     return [row[0] for row in rows]
 
 
-async def storage_get_leaderboard(guild_id: int, plugin_id: str, prefix: str, limit: int) -> list[dict]:
+async def storage_get_leaderboard(
+    guild_id: int, plugin_id: str, prefix: str, limit: int, db: aiosqlite.Connection | None = None
+) -> list[dict]:
     """
     依數值由大到小排序，回傳指定前綴底下的前 limit 筆資料，由宿主端排序，
     避免外掛在 Lua 裡自己排序耗盡執行步數。
@@ -188,6 +202,7 @@ async def storage_get_leaderboard(guild_id: int, plugin_id: str, prefix: str, li
         plugin_id: 外掛 ID
         prefix: key 前綴
         limit: 最多回傳幾筆
+        db: 同 storage_set() 的說明
 
     Returns:
         list of {"key": str, "value": int | float}，只包含值為數字的項目，
@@ -196,7 +211,7 @@ async def storage_get_leaderboard(guild_id: int, plugin_id: str, prefix: str, li
     if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1 or limit > MAX_LEADERBOARD_LIMIT:
         raise StorageLimitExceededError(f"leaderboard limit 必須介於 1 到 {MAX_LEADERBOARD_LIMIT}")
 
-    db = get_db()
+    db = db or get_db()
     async with db.execute(
         "SELECT key, value_json FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key LIKE ? ESCAPE '\\'",
         (guild_id, plugin_id, _escape_like_pattern(prefix) + "%"),
@@ -220,6 +235,7 @@ async def create_scheduled_task(
     task_name: str,
     payload: dict,
     recurring_interval_seconds: int | None = None,
+    db: aiosqlite.Connection | None = None,
 ) -> str:
     """
     建立一筆排程任務，時間到由 Track D 的排程消費迴圈觸發 on_scheduled_task 事件。
@@ -231,6 +247,7 @@ async def create_scheduled_task(
         task_name: 任務名稱，會原樣傳回 on_scheduled_task 事件的 payload
         payload: 任務資料，會原樣傳回 on_scheduled_task 事件的 payload
         recurring_interval_seconds: 週期性任務的重複間隔秒數，None 代表只執行一次
+        db: 同 storage_set() 的說明
 
     Returns:
         新建立的任務 ID，可用於之後呼叫 cancel_scheduled_task 取消
@@ -265,7 +282,7 @@ async def create_scheduled_task(
             f"payload 大小超過上限（{MAX_SCHEDULED_TASK_PAYLOAD_BYTES} bytes）"
         )
 
-    db = get_db()
+    db = db or get_db()
     async with db.execute(
         "SELECT COUNT(*) FROM plugin_scheduled_tasks WHERE guild_id = ? AND plugin_id = ?",
         (guild_id, plugin_id),
@@ -295,11 +312,12 @@ async def create_scheduled_task(
             recurring_interval_seconds,
         ),
     )
-    await db.commit()
     return task_id
 
 
-async def cancel_scheduled_task(guild_id: int, plugin_id: str, task_id: str) -> bool:
+async def cancel_scheduled_task(
+    guild_id: int, plugin_id: str, task_id: str, db: aiosqlite.Connection | None = None
+) -> bool:
     """
     取消一筆尚未執行的排程任務，只能取消自己外掛在自己伺服器安裝底下建立的任務。
 
@@ -307,14 +325,14 @@ async def cancel_scheduled_task(guild_id: int, plugin_id: str, task_id: str) -> 
         guild_id: 伺服器 ID
         plugin_id: 外掛 ID
         task_id: 要取消的任務 ID
+        db: 同 storage_set() 的說明
 
     Returns:
         True 表示確實刪除了一筆；False 表示找不到（可能已經執行過或 ID 錯誤）
     """
-    db = get_db()
+    db = db or get_db()
     cursor = await db.execute(
         "DELETE FROM plugin_scheduled_tasks WHERE task_id = ? AND guild_id = ? AND plugin_id = ?",
         (task_id, guild_id, plugin_id),
     )
-    await db.commit()
     return cursor.rowcount > 0

@@ -26,38 +26,54 @@ def bind_capabilities(runtime, context: ExecutionContext) -> None:
     """
     allowed_functions = get_allowed_functions(context)
     wrapped_functions = {
-        function_name: _wrap_capability_function(runtime, function)
+        function_name: _SafeCapabilityCallable(function, runtime)
         for function_name, function in allowed_functions.items()
     }
     runtime.globals()["api"] = runtime.table_from(wrapped_functions)
 
 
-def _wrap_capability_function(runtime, function: Callable) -> Callable:
+class _SafeCapabilityCallable:
     """
-    包一層轉換：呼叫前把外掛傳進來的 Lua table 參數遞迴轉成 Python dict/list
-    （能力函式本身用純 Python 型別寫，不該認識 Lua table 是什麼）；
-    呼叫後如果回傳值是 dict/list，轉成真正的 Lua table 再回傳給外掛。
+    包住一個能力函式，讓 Lua 只能「呼叫」它，完全不能存取它的任何屬性。
 
-    這一步是必要的，不是防禦性寫法而已：lupa 預設把 Python dict/list
-    以不透明的 userdata 物件（POBJECT）形式暴露給 Lua，外掛拿到之後
-    連 `#result.role_ids`、`ipairs(result.role_ids)` 這種最基本的 Lua
-    語法都會直接報錯（`attempt to get length of a POBJECT value`），
-    必須用 `runtime.table_from(value, recursive=True)` 轉成真正的 Lua table
-    外掛才能用一般 Lua 語法正常操作巢狀資料。
+    背景（第三方複查才發現的第 8 種逃逸手法，見 design.md 第 5.3 節）：
+    lupa 預設讓任何暴露給 Lua 的 Python callable 同時支援呼叫跟屬性存取，
+    實測 `api.random.__globals__` 可以直接拿到該函式所在模組的 globals dict，
+    再往下 `__globals__["__builtins__"]["__import__"]("os")` 就能拿到真正的
+    Python `os` 模組、執行任意系統呼叫——完全繞過 Lua 層的步數/記憶體上限跟
+    全域函式清空，因為這條路徑從頭到尾沒有經過 Lua 自己的全域表。
+    `register_eval=False`／`register_builtins=False`（engine.py）只關掉 lupa
+    主動提供的 `python.eval(...)` 橋接跟 `python` 全域表，完全不影響「已經
+    傳進 Lua 的 Python 物件本身的屬性能不能被戳」，這裡才是真正需要擋的地方。
 
-    Args:
-        runtime: 目前的 LuaRuntime，轉換回傳值時需要用它建立 Lua table
-        function: 未包裝的能力函式（純 Python 型別的參數與回傳值）
+    只覆寫 `__getattr__` 不夠：`__call__`／`__class__`／`__init__` 這些本來就
+    定義在 class 上、正常查找就會成功的屬性不會落到 `__getattr__`，必須整個
+    覆寫 `__getattribute__` 才能連這些一起擋下來。這不影響外掛正常呼叫這個
+    物件——Python 的呼叫協定（`obj(...)`）是透過型別的 `__call__` slot解析，
+    不會經過 instance 的 `__getattribute__`，所以呼叫本身完全不受影響。
 
-    Returns:
-        包裝後、可以直接綁進 Lua 環境呼叫的函式
+    也負責原本 _wrap_capability_function() 做的參數/回傳值轉換：呼叫前把
+    Lua table 參數遞迴轉成 Python dict/list，呼叫後如果回傳值是 dict/list，
+    轉成真正的 Lua table 再回傳——lupa 預設把 Python dict/list 以不透明的
+    userdata 物件（POBJECT）形式暴露給 Lua，外掛拿到後連 `#result.role_ids`、
+    `ipairs(result.role_ids)` 這種最基本的 Lua 語法都會直接報錯，一定要用
+    `runtime.table_from(value, recursive=True)` 轉成真正的 Lua table。
     """
 
-    def wrapped(*lua_args):
+    __slots__ = ("_function", "_runtime")
+
+    def __init__(self, function: Callable, runtime) -> None:
+        object.__setattr__(self, "_function", function)
+        object.__setattr__(self, "_runtime", runtime)
+
+    def __call__(self, *lua_args):
+        function = object.__getattribute__(self, "_function")
+        runtime = object.__getattribute__(self, "_runtime")
         python_args = [lua_value_to_python(arg) for arg in lua_args]
         result = function(*python_args)
         if isinstance(result, (dict, list)):
             return runtime.table_from(result, recursive=True)
         return result
 
-    return wrapped
+    def __getattribute__(self, name: str):
+        raise AttributeError(f"外掛不能存取能力函式的屬性：{name}")

@@ -22,12 +22,16 @@ HELP_TEXT = """
   admin plugin install <guild_id> <plugin_id>                 安裝外掛到指定伺服器
   admin plugin uninstall <guild_id> <plugin_id>               從指定伺服器移除外掛
   admin plugin suspend <plugin_id>                            停權指定外掛（跨所有安裝）
+  admin plugin unsuspend <plugin_id>                          解除指定外掛停權
   admin plugin quota set <guild_id> <plugin_id> execution=<次數> action=<次數>
                                                                調整指定安裝的動態配額
 """
 
 QUOTA_NAMES = {"execution", "action"}
 MESSAGE_CACHE_EVENTS = {"on_message_edit", "on_message_delete"}
+MIN_QUOTA_OVERRIDE = 0
+MAX_EXECUTION_QUOTA_OVERRIDE = 10_000
+MAX_ACTION_QUOTA_OVERRIDE = 10_000
 
 
 def _parse_quota_value(value: str) -> int | None:
@@ -42,7 +46,10 @@ def _parse_quota_value(value: str) -> int | None:
     """
     if value.lower() in {"none", "null", "default"}:
         return None
-    return int(value)
+    parsed_value = int(value)
+    if parsed_value < MIN_QUOTA_OVERRIDE:
+        raise ValueError("配額不能是負數")
+    return parsed_value
 
 
 def _parse_quota_arguments(arguments: list[str]) -> tuple[int | None, int | None]:
@@ -70,6 +77,13 @@ def _parse_quota_arguments(arguments: list[str]) -> tuple[int | None, int | None
         seen_names.add(name)
     if seen_names != QUOTA_NAMES:
         raise ValueError("quota set 必須同時提供 execution= 與 action=")
+    if (
+        quota_values["execution"] is not None
+        and quota_values["execution"] > MAX_EXECUTION_QUOTA_OVERRIDE
+    ):
+        raise ValueError(f"execution 配額不能超過 {MAX_EXECUTION_QUOTA_OVERRIDE}")
+    if quota_values["action"] is not None and quota_values["action"] > MAX_ACTION_QUOTA_OVERRIDE:
+        raise ValueError(f"action 配額不能超過 {MAX_ACTION_QUOTA_OVERRIDE}")
     return quota_values["execution"], quota_values["action"]
 
 
@@ -206,6 +220,14 @@ async def handle_command(line: str) -> None:
             if updated:
                 await suspension.refresh_from_database(get_db())
                 print("已停權外掛並同步停權快取。")
+            else:
+                print(f"找不到外掛：{plugin_id}")
+        elif command == "unsuspend" and len(parts) == 4:
+            plugin_id = parts[3]
+            updated = await repository.unsuspend_plugin(plugin_id)
+            if updated:
+                await suspension.refresh_from_database(get_db())
+                print("已解除外掛停權並同步停權快取。")
             else:
                 print(f"找不到外掛：{plugin_id}")
         elif command == "quota":

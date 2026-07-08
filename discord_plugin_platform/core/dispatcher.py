@@ -12,6 +12,26 @@ from sandbox.worker import execute_plugin_event
 logger = logging.getLogger(__name__)
 
 EXECUTION_TIMEOUT_SECONDS = 2  # 暫定值，待第二階段實測後校準，見 design.md 第 5.4 節
+MAX_ACTIONS_PER_EXECUTION = 20
+
+_ACTION_PARAM_KEYS = {
+    "send_message": ({"channel_id", "content"}, {"channel_id", "content", "embed", "buttons"}),
+    "reply_message": (
+        {"channel_id", "message_id", "content"},
+        {"channel_id", "message_id", "content", "embed", "buttons"},
+    ),
+    "edit_message": ({"channel_id", "message_id", "content"}, {"channel_id", "message_id", "content", "embed"}),
+    "pin_message": ({"channel_id", "message_id"}, {"channel_id", "message_id"}),
+    "unpin_message": ({"channel_id", "message_id"}, {"channel_id", "message_id"}),
+    "send_poll": ({"channel_id", "question", "options", "duration"}, {"channel_id", "question", "options", "duration"}),
+    "delete_message": ({"channel_id", "message_id"}, {"channel_id", "message_id"}),
+    "add_role": ({"user_id", "role_id"}, {"user_id", "role_id"}),
+    "remove_role": ({"user_id", "role_id"}, {"user_id", "role_id"}),
+    "set_nickname": ({"user_id", "nickname"}, {"user_id", "nickname"}),
+    "timeout_member": ({"user_id", "duration_seconds", "reason"}, {"user_id", "duration_seconds", "reason"}),
+    "create_thread": ({"channel_id", "name"}, {"channel_id", "name"}),
+    "archive_thread": ({"thread_id"}, {"thread_id"}),
+}
 
 
 async def dispatch_event(
@@ -118,12 +138,96 @@ def _validate_actions(installation: dict, actions: list[dict]) -> bool:
     Returns:
         True 表示全部通過驗證
     """
+    if not isinstance(actions, list) or len(actions) > MAX_ACTIONS_PER_EXECUTION:
+        return False
+
     granted_capabilities = set(json.loads(installation["granted_capabilities_json"]))
     for action in actions:
+        if not isinstance(action, dict) or set(action.keys()) != {"type", "params"}:
+            return False
         action_type = action.get("type")
+        params = action.get("params")
+        if not isinstance(action_type, str) or not isinstance(params, dict):
+            return False
+        if action_type not in _ACTION_HANDLERS:
+            return False
         required_capability = CAPABILITY_OWNERS.get(action_type)
         if required_capability is None or required_capability not in granted_capabilities:
             return False
+        required_keys, allowed_keys = _ACTION_PARAM_KEYS[action_type]
+        param_keys = set(params.keys())
+        if not required_keys.issubset(param_keys) or not param_keys.issubset(allowed_keys):
+            return False
+        if not _validate_action_param_values(action_type, params):
+            return False
+    return True
+
+
+def _is_int_id(value: object) -> bool:
+    """
+    檢查 Discord snowflake 參數是否為正整數，避免 bool 被當成 int 通過。
+    """
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def _is_optional_dict(value: object) -> bool:
+    """
+    檢查可省略的 embed 參數型別。
+    """
+    return value is None or isinstance(value, dict)
+
+
+def _is_optional_buttons(value: object) -> bool:
+    """
+    檢查可省略的 buttons 參數型別。
+    """
+    if value is None:
+        return True
+    return isinstance(value, list) and all(isinstance(button, dict) for button in value)
+
+
+def _validate_action_param_values(action_type: str, params: dict) -> bool:
+    """
+    驗證各延後動作參數的基本型別與安全範圍。
+    """
+    id_fields = {
+        "channel_id",
+        "message_id",
+        "user_id",
+        "role_id",
+        "thread_id",
+    }
+    for field in id_fields & set(params.keys()):
+        if not _is_int_id(params[field]):
+            return False
+
+    if "content" in params and params["content"] is not None and not isinstance(params["content"], str):
+        return False
+    if "embed" in params and not _is_optional_dict(params["embed"]):
+        return False
+    if "buttons" in params and not _is_optional_buttons(params["buttons"]):
+        return False
+    if action_type == "send_poll":
+        return (
+            isinstance(params["question"], str)
+            and isinstance(params["options"], list)
+            and 2 <= len(params["options"]) <= 10
+            and all(isinstance(option, str) and option for option in params["options"])
+            and isinstance(params["duration"], int)
+            and not isinstance(params["duration"], bool)
+            and 1 <= params["duration"] <= 168
+        )
+    if action_type == "set_nickname":
+        return params["nickname"] is None or isinstance(params["nickname"], str)
+    if action_type == "timeout_member":
+        return (
+            isinstance(params["duration_seconds"], int)
+            and not isinstance(params["duration_seconds"], bool)
+            and 1 <= params["duration_seconds"] <= 2_419_200
+            and (params["reason"] is None or isinstance(params["reason"], str))
+        )
+    if action_type == "create_thread":
+        return isinstance(params["name"], str) and bool(params["name"])
     return True
 
 

@@ -186,6 +186,74 @@ async def test_timeout_member_and_set_nickname():
     assert recorder.calls == [("timeout", 999, "spam"), ("edit_member", 999, {"nick": "new"})]
 
 
+async def test_send_poll_builds_discord_poll_with_answers():
+    import discord
+
+    recorder = _Recorder()
+    channel = _FakeChannel(recorder, 42)
+    guild = _FakeGuild(recorder, channels={42: channel})
+    bot_registry.set_bot(_FakeBot(guild))
+    try:
+        await dispatcher._execute_actions(
+            1,
+            [
+                {
+                    "type": "send_poll",
+                    "params": {
+                        "channel_id": 42,
+                        "question": "最愛的顏色？",
+                        "options": ["紅", "藍"],
+                        "duration": 2,
+                    },
+                }
+            ],
+        )
+    finally:
+        bot_registry.set_bot(None)
+    assert len(recorder.calls) == 1
+    call_kind, channel_id, kwargs = recorder.calls[0]
+    assert (call_kind, channel_id) == ("send", 42)
+    poll = kwargs["poll"]
+    assert isinstance(poll, discord.Poll)
+    assert poll.question == "最愛的顏色？"
+    assert [answer.text for answer in poll.answers] == ["紅", "藍"]
+
+
+async def test_delete_message_fetches_then_deletes():
+    recorder = _Recorder()
+    message = _FakeMessage(recorder, 100)
+    channel = _FakeChannel(recorder, 42, messages={100: message})
+    guild = _FakeGuild(recorder, channels={42: channel})
+    bot_registry.set_bot(_FakeBot(guild))
+    try:
+        await dispatcher._execute_actions(
+            1, [{"type": "delete_message", "params": {"channel_id": 42, "message_id": 100}}]
+        )
+    finally:
+        bot_registry.set_bot(None)
+    assert recorder.calls == [("delete", 100)]
+
+
+async def test_create_thread_calls_channel_create_thread():
+    recorder = _Recorder()
+    channel = _FakeChannel(recorder, 42)
+    guild = _FakeGuild(recorder, channels={42: channel})
+    bot_registry.set_bot(_FakeBot(guild))
+    try:
+        await dispatcher._execute_actions(
+            1, [{"type": "create_thread", "params": {"channel_id": 42, "name": "討論串"}}]
+        )
+    finally:
+        bot_registry.set_bot(None)
+    assert recorder.calls == [
+        (
+            "create_thread",
+            42,
+            {"name": "討論串", "type": dispatcher.discord.ChannelType.public_thread},
+        )
+    ]
+
+
 async def test_archive_thread():
     recorder = _Recorder()
     thread = _FakeThread(recorder, 777)

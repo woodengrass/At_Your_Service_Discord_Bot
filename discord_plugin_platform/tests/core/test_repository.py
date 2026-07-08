@@ -174,6 +174,27 @@ async def test_create_and_delete_installation(plugin_database: aiosqlite.Connect
     assert await repository.get_installation(1111, "temp_role_punishment") is None
 
 
+async def test_delete_installation_also_deletes_its_scheduled_tasks(plugin_database: aiosqlite.Connection) -> None:
+    """
+    刪除安裝時要一併清掉這個安裝底下所有排程任務，否則排程消費迴圈每分鐘都會
+    重新嘗試分派一個永遠找不到對應安裝的任務，變成永遠重試、永遠不會消失的殭屍任務。
+    """
+    await repository.create_installation(1111, "temp_role_punishment", "1.0.0", ["schedule_task"])
+    await plugin_database.execute(
+        """
+        INSERT INTO plugin_scheduled_tasks
+            (task_id, guild_id, plugin_id, run_at, payload_json, recurring_interval_seconds)
+        VALUES ('task-1', 1111, 'temp_role_punishment', '2026-01-01T00:00:00+00:00', '{}', NULL)
+        """
+    )
+    await plugin_database.commit()
+
+    assert await repository.delete_installation(1111, "temp_role_punishment") is True
+
+    due_tasks = await repository.get_due_scheduled_tasks("2099-01-01T00:00:00+00:00")
+    assert due_tasks == []
+
+
 async def test_get_enabled_installations_includes_manifest_json(plugin_database: aiosqlite.Connection) -> None:
     await _submit_example_plugin()
     await repository.create_installation(1111, "temp_role_punishment", "1.0.0", ["manage_roles"])
@@ -185,6 +206,15 @@ async def test_get_enabled_installations_includes_manifest_json(plugin_database:
 
 
 async def test_get_due_scheduled_tasks(plugin_database: aiosqlite.Connection) -> None:
+    """
+    get_due_scheduled_tasks() 會 JOIN plugin_installations/plugins/plugin_versions，
+    只回傳仍有啟用安裝、且外掛狀態是 approved 的到期任務，所以測試資料必須先建好
+    一個完整的已核准外掛＋已啟用安裝，光插入 plugin_scheduled_tasks 一筆是不夠的。
+    """
+    await _submit_example_plugin()
+    await repository.approve_plugin("temp_role_punishment")
+    await repository.create_installation(1111, "temp_role_punishment", "1.0.0", ["schedule_task"])
+
     await plugin_database.executemany(
         """
         INSERT INTO plugin_scheduled_tasks
@@ -222,6 +252,7 @@ async def test_get_due_scheduled_tasks(plugin_database: aiosqlite.Connection) ->
             "run_at": "2026-01-01T00:00:00+00:00",
             "payload_json": '{"kind":"due"}',
             "recurring_interval_seconds": None,
+            "manifest_json": json.dumps({"name": "temp_role_punishment"}),
         }
     ]
 
@@ -243,6 +274,10 @@ async def test_delete_scheduled_task(plugin_database: aiosqlite.Connection) -> N
 
 
 async def test_update_scheduled_task_run_at(plugin_database: aiosqlite.Connection) -> None:
+    await _submit_example_plugin()
+    await repository.approve_plugin("temp_role_punishment")
+    await repository.create_installation(1111, "temp_role_punishment", "1.0.0", ["schedule_task"])
+
     await plugin_database.execute(
         """
         INSERT INTO plugin_scheduled_tasks
@@ -259,6 +294,30 @@ async def test_update_scheduled_task_run_at(plugin_database: aiosqlite.Connectio
 
     assert updated is True
     assert due_tasks[0]["run_at"] == "2026-01-01T00:01:00+00:00"
+
+
+async def test_get_due_scheduled_tasks_ignores_suspended_plugins(
+    plugin_database: aiosqlite.Connection,
+) -> None:
+    """
+    到期排程只應回傳仍核准且啟用安裝的外掛，避免 suspended 外掛每分鐘重試。
+    """
+    await _submit_example_plugin()
+    await repository.approve_plugin("temp_role_punishment")
+    await repository.create_installation(1111, "temp_role_punishment", "1.0.0", ["schedule_task"])
+    await repository.suspend_plugin("temp_role_punishment")
+    await plugin_database.execute(
+        """
+        INSERT INTO plugin_scheduled_tasks
+            (task_id, guild_id, plugin_id, run_at, payload_json, recurring_interval_seconds)
+        VALUES ('task_to_skip', 1111, 'temp_role_punishment', '2026-01-01T00:00:00+00:00', '{}', NULL)
+        """
+    )
+    await plugin_database.commit()
+
+    due_tasks = await repository.get_due_scheduled_tasks("2026-01-01T00:01:00+00:00")
+
+    assert due_tasks == []
 
 
 async def test_guild_has_event_subscription(plugin_database: aiosqlite.Connection) -> None:

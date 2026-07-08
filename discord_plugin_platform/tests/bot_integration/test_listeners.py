@@ -106,6 +106,42 @@ async def test_on_interaction_dispatches_select_values(monkeypatch) -> None:
     ]
 
 
+async def test_on_interaction_dispatches_slash_command(monkeypatch) -> None:
+    """
+    application command interaction 應轉成 on_slash_command，讓宣告 slash_commands 的外掛能被觸發。
+    """
+    captured_events: list[tuple[int, str, dict]] = []
+
+    async def fake_dispatch_event(guild_id: int, event_type: str, event_payload: dict) -> None:
+        captured_events.append((guild_id, event_type, event_payload))
+
+    monkeypatch.setattr(listeners, "dispatch_event", fake_dispatch_event)
+
+    cog = listeners.PluginPlatformListeners(FakeBot())
+    interaction = SimpleNamespace(
+        guild=SimpleNamespace(id=1111),
+        type=discord.InteractionType.application_command,
+        data={"name": "temp_role", "options": [{"name": "user", "value": "2222"}]},
+        user=SimpleNamespace(id=3333),
+        channel=SimpleNamespace(id=4444),
+    )
+
+    await cog.on_interaction(interaction)
+
+    assert captured_events == [
+        (
+            1111,
+            "on_slash_command",
+            {
+                "command_name": "temp_role",
+                "options": [{"name": "user", "value": "2222"}],
+                "invoking_user_id": 3333,
+                "channel_id": 4444,
+            },
+        )
+    ]
+
+
 async def test_member_events_dispatch_expected_payloads(monkeypatch) -> None:
     """
     成員加入與離開事件應轉成設計文件定義的事件名稱。
@@ -161,14 +197,27 @@ async def test_raw_message_edit_and_delete_use_message_cache(monkeypatch) -> Non
     assert captured_events[0][2]["new_content"] == "new content"
     assert captured_events[1][1] == "on_message_delete"
     assert captured_events[1][2]["content"] == "new content"
+    assert message_cache.get_cached_message(4444, 3333) is None
     message_cache.purge_guild(1111)
+
+
+async def test_on_guild_remove_purges_message_cache() -> None:
+    """
+    bot 被移出伺服器時應清理該伺服器所有訊息快取。
+    """
+    cog = listeners.PluginPlatformListeners(FakeBot())
+    message_cache.cache_message(1111, 4444, 3333, 2222, "content")
+
+    await cog.on_guild_remove(SimpleNamespace(id=1111))
+
+    assert message_cache.get_cached_message(4444, 3333) is None
 
 
 async def test_voice_state_update_dispatches_channel_ids(monkeypatch) -> None:
     """
     語音狀態變更應轉發 before/after channel id。
     """
-    captured_events: list[tuple[int, str, dict]] = []
+    captured_events: list[tuple[int, str, dict, str | None]] = []
 
     async def fake_dispatch_event(guild_id: int, event_type: str, event_payload: dict) -> None:
         captured_events.append((guild_id, event_type, event_payload))
@@ -208,6 +257,7 @@ async def test_consume_due_scheduled_tasks_deletes_and_updates(monkeypatch) -> N
                 "run_at": "2026-01-01T00:00:00+00:00",
                 "payload_json": '{"task_name":"single_restore","payload":{"kind":"single"}}',
                 "recurring_interval_seconds": None,
+                "manifest_json": '{"event_hooks":["on_scheduled_task"]}',
             },
             {
                 "task_id": "recurring_task",
@@ -216,6 +266,7 @@ async def test_consume_due_scheduled_tasks_deletes_and_updates(monkeypatch) -> N
                 "run_at": "2026-01-01T00:00:00+00:00",
                 "payload_json": '{"task_name":"recurring_restore","payload":{"kind":"recurring"}}',
                 "recurring_interval_seconds": 60,
+                "manifest_json": '{"event_hooks":["on_scheduled_task"]}',
             },
         ]
 
@@ -265,6 +316,7 @@ async def test_consume_due_scheduled_tasks_keeps_task_when_dispatch_fails(monkey
                 "run_at": "2026-01-01T00:00:00+00:00",
                 "payload_json": '{"task_name":"single_restore","payload":{"kind":"single"}}',
                 "recurring_interval_seconds": None,
+                "manifest_json": '{"event_hooks":["on_scheduled_task"]}',
             }
         ]
 
@@ -294,3 +346,48 @@ async def test_consume_due_scheduled_tasks_keeps_task_when_dispatch_fails(monkey
 
     assert deleted_task_ids == []
     assert updated_tasks == []
+
+
+async def test_consume_due_scheduled_tasks_deletes_task_without_hook(monkeypatch) -> None:
+    """
+    若目前版本已不再訂閱 on_scheduled_task，舊排程應清除，避免永久重試。
+    """
+    deleted_task_ids: list[str] = []
+    dispatch_called = False
+
+    async def fake_get_due_scheduled_tasks(now_iso: str) -> list[dict]:
+        return [
+            {
+                "task_id": "orphan_task",
+                "guild_id": 1111,
+                "plugin_id": "temp_role_punishment",
+                "run_at": "2026-01-01T00:00:00+00:00",
+                "payload_json": '{"task_name":"single_restore","payload":{}}',
+                "recurring_interval_seconds": None,
+                "manifest_json": '{"event_hooks":["on_message"]}',
+            }
+        ]
+
+    async def fake_delete_scheduled_task(task_id: str) -> None:
+        deleted_task_ids.append(task_id)
+
+    async def fake_dispatch_event(
+        guild_id: int,
+        event_type: str,
+        event_payload: dict,
+        target_plugin_id: str | None = None,
+    ) -> bool:
+        nonlocal dispatch_called
+        dispatch_called = True
+        return True
+
+    monkeypatch.setattr(listeners.repository, "get_due_scheduled_tasks", fake_get_due_scheduled_tasks)
+    monkeypatch.setattr(listeners.repository, "delete_scheduled_task", fake_delete_scheduled_task)
+    monkeypatch.setattr(listeners, "dispatch_event", fake_dispatch_event)
+
+    cog = listeners.PluginPlatformListeners(FakeBot())
+
+    await cog.consume_due_scheduled_tasks()
+
+    assert deleted_task_ids == ["orphan_task"]
+    assert dispatch_called is False

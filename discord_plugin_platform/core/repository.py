@@ -6,6 +6,9 @@ from core.database import get_db
 
 logger = logging.getLogger(__name__)
 
+MIN_QUOTA_OVERRIDE = 0
+MAX_QUOTA_OVERRIDE = 10_000
+
 
 def _now_iso() -> str:
     """
@@ -356,7 +359,12 @@ async def create_installation(
 
 async def delete_installation(guild_id: int, plugin_id: str) -> bool:
     """
-    刪除指定伺服器的外掛安裝紀錄。
+    刪除指定伺服器的外掛安裝紀錄，並清掉這個安裝底下所有尚未執行的排程任務。
+
+    一併清掉排程任務是必要的，不是順手做的清理：`consume_due_scheduled_tasks()`
+    每分鐘會重新分派所有到期任務，如果安裝已經刪除但任務還留著，
+    `dispatch_event(target_plugin_id=...)` 永遠找不到對應安裝、永遠回傳失敗，
+    任務會被永遠保留、永遠重試，變成每分鐘執行一次、永遠不會成功也不會消失的殭屍任務。
 
     Args:
         guild_id: 伺服器 ID
@@ -368,6 +376,10 @@ async def delete_installation(guild_id: int, plugin_id: str) -> bool:
     db = get_db()
     cursor = await db.execute(
         "DELETE FROM plugin_installations WHERE guild_id = ? AND plugin_id = ?",
+        (guild_id, plugin_id),
+    )
+    await db.execute(
+        "DELETE FROM plugin_scheduled_tasks WHERE guild_id = ? AND plugin_id = ?",
         (guild_id, plugin_id),
     )
     await db.commit()
@@ -387,10 +399,24 @@ async def get_due_scheduled_tasks(now_iso: str) -> list[dict]:
     db = get_db()
     async with db.execute(
         """
-        SELECT task_id, guild_id, plugin_id, run_at, payload_json, recurring_interval_seconds
+        SELECT plugin_scheduled_tasks.task_id, plugin_scheduled_tasks.guild_id,
+               plugin_scheduled_tasks.plugin_id, plugin_scheduled_tasks.run_at,
+               plugin_scheduled_tasks.payload_json,
+               plugin_scheduled_tasks.recurring_interval_seconds,
+               plugin_versions.manifest_json
         FROM plugin_scheduled_tasks
-        WHERE run_at <= ?
-        ORDER BY run_at, task_id
+        JOIN plugin_installations
+          ON plugin_installations.guild_id = plugin_scheduled_tasks.guild_id
+         AND plugin_installations.plugin_id = plugin_scheduled_tasks.plugin_id
+         AND plugin_installations.enabled = 1
+        JOIN plugins
+          ON plugins.plugin_id = plugin_scheduled_tasks.plugin_id
+         AND plugins.status = 'approved'
+        JOIN plugin_versions
+          ON plugin_versions.plugin_id = plugin_installations.plugin_id
+         AND plugin_versions.version = plugin_installations.installed_version
+        WHERE plugin_scheduled_tasks.run_at <= ?
+        ORDER BY plugin_scheduled_tasks.run_at, plugin_scheduled_tasks.task_id
         """,
         (now_iso,),
     ) as cursor:
@@ -403,6 +429,7 @@ async def get_due_scheduled_tasks(now_iso: str) -> list[dict]:
             "run_at": row[3],
             "payload_json": row[4],
             "recurring_interval_seconds": row[5],
+            "manifest_json": row[6],
         }
         for row in rows
     ]
@@ -569,6 +596,10 @@ async def set_installation_quota_override(
     Returns:
         True 表示成功更新；若該安裝不存在則回傳 False
     """
+    for quota_value in (execution_quota, action_quota):
+        if quota_value is not None and (quota_value < MIN_QUOTA_OVERRIDE or quota_value > MAX_QUOTA_OVERRIDE):
+            raise ValueError(f"配額覆蓋值必須介於 {MIN_QUOTA_OVERRIDE} 到 {MAX_QUOTA_OVERRIDE}")
+
     db = get_db()
     cursor = await db.execute(
         """

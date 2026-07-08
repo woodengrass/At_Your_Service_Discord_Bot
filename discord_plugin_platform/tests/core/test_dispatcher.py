@@ -23,8 +23,48 @@ def test_validate_actions_uses_granted_capabilities_json() -> None:
     """
     installation = {"granted_capabilities_json": json.dumps(["send_message"])}
 
-    assert _validate_actions(installation, [{"type": "send_message", "params": {}}]) is True
+    assert _validate_actions(
+        installation,
+        [{"type": "send_message", "params": {"channel_id": 1, "content": "hi"}}],
+    ) is True
     assert _validate_actions(installation, [{"type": "add_role", "params": {}}]) is False
+
+
+def test_validate_actions_rejects_non_deferred_and_malformed_actions() -> None:
+    """
+    宿主端只接受 dispatcher 支援的延後動作，且 action shape 與 params 必須符合規格。
+    """
+    installation = {"granted_capabilities_json": json.dumps(["send_message", "read_message_history"])}
+
+    assert _validate_actions(
+        installation,
+        [{"type": "read_message_history", "params": {"channel_id": 1, "limit": 10}}],
+    ) is False
+    assert _validate_actions(
+        installation,
+        [{"type": "send_message", "params": {"channel_id": 1, "content": "hi"}, "extra": True}],
+    ) is False
+    assert _validate_actions(
+        installation,
+        [{"type": "send_message", "params": {"channel_id": 1, "content": "hi", "unknown": "x"}}],
+    ) is False
+    assert _validate_actions(
+        installation,
+        [{"type": "send_message", "params": {"channel_id": "bad", "content": "hi"}}],
+    ) is False
+
+
+def test_validate_actions_rejects_too_many_actions() -> None:
+    """
+    單次執行最多允許 20 個延後動作。
+    """
+    installation = {"granted_capabilities_json": json.dumps(["send_message"])}
+    actions = [
+        {"type": "send_message", "params": {"channel_id": index + 1, "content": "hi"}}
+        for index in range(dispatcher.MAX_ACTIONS_PER_EXECUTION + 1)
+    ]
+
+    assert _validate_actions(installation, actions) is False
 
 
 async def test_dispatch_event_passes_source_code_and_granted_capabilities(monkeypatch) -> None:

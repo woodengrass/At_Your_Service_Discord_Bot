@@ -7,8 +7,11 @@ import pytest
 
 from core import database, plugin_storage_repository
 from core.plugin_storage_repository import (
+    MAX_LEADERBOARD_LIMIT,
+    MAX_SCHEDULED_TASK_NAME_LENGTH,
     MAX_STORAGE_KEY_LENGTH,
     MAX_STORAGE_VALUE_BYTES,
+    ScheduledTaskLimitExceededError,
     StorageLimitExceededError,
 )
 
@@ -73,3 +76,39 @@ async def test_storage_limits_are_scoped_per_guild_and_plugin(temp_db, monkeypat
     await plugin_storage_repository.storage_set(1, "plugin_a", "key1", 1)
     await plugin_storage_repository.storage_set(2, "plugin_a", "key1", 1)
     await plugin_storage_repository.storage_set(1, "plugin_b", "key1", 1)
+
+
+async def test_storage_get_leaderboard_rejects_invalid_limit(temp_db):
+    with pytest.raises(StorageLimitExceededError, match="leaderboard limit"):
+        await plugin_storage_repository.storage_get_leaderboard(1, "plugin_a", "score", 0)
+    with pytest.raises(StorageLimitExceededError, match="leaderboard limit"):
+        await plugin_storage_repository.storage_get_leaderboard(
+            1,
+            "plugin_a",
+            "score",
+            MAX_LEADERBOARD_LIMIT + 1,
+        )
+
+
+async def test_create_scheduled_task_rejects_invalid_inputs(temp_db):
+    with pytest.raises(ScheduledTaskLimitExceededError, match="delay_seconds"):
+        await plugin_storage_repository.create_scheduled_task(1, "plugin_a", 0, "task", {})
+    with pytest.raises(ScheduledTaskLimitExceededError, match="task_name"):
+        await plugin_storage_repository.create_scheduled_task(
+            1,
+            "plugin_a",
+            60,
+            "x" * (MAX_SCHEDULED_TASK_NAME_LENGTH + 1),
+            {},
+        )
+    with pytest.raises(ScheduledTaskLimitExceededError, match="recurring_interval_seconds"):
+        await plugin_storage_repository.create_scheduled_task(1, "plugin_a", 60, "task", {}, 1)
+
+
+async def test_create_scheduled_task_rejects_too_many_tasks(temp_db, monkeypatch):
+    monkeypatch.setattr(plugin_storage_repository, "MAX_SCHEDULED_TASKS_PER_INSTALLATION", 1)
+
+    await plugin_storage_repository.create_scheduled_task(1, "plugin_a", 60, "task", {})
+
+    with pytest.raises(ScheduledTaskLimitExceededError, match="排程任務數量已達上限"):
+        await plugin_storage_repository.create_scheduled_task(1, "plugin_a", 60, "task", {})

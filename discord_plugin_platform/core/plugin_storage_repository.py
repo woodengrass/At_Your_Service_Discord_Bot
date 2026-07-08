@@ -21,11 +21,24 @@ from core.database import get_db
 MAX_STORAGE_KEY_LENGTH = 256
 MAX_STORAGE_VALUE_BYTES = 64 * 1024
 MAX_STORAGE_KEYS_PER_INSTALLATION = 1000
+MAX_LEADERBOARD_LIMIT = 100
+MAX_SCHEDULED_TASKS_PER_INSTALLATION = 1000
+MAX_SCHEDULED_TASK_NAME_LENGTH = 128
+MAX_SCHEDULED_TASK_PAYLOAD_BYTES = 16 * 1024
+MIN_SCHEDULE_DELAY_SECONDS = 1
+MAX_SCHEDULE_DELAY_SECONDS = 60 * 60 * 24 * 365
+MIN_RECURRING_INTERVAL_SECONDS = 60
 
 
 class StorageLimitExceededError(Exception):
     """
     storage_set() 超過 key 長度、value 大小或每個安裝的 key 數量上限時拋出。
+    """
+
+
+class ScheduledTaskLimitExceededError(Exception):
+    """
+    schedule_task() 超過數量、payload 大小或時間範圍限制時拋出。
     """
 
 
@@ -180,6 +193,9 @@ async def storage_get_leaderboard(guild_id: int, plugin_id: str, prefix: str, li
         list of {"key": str, "value": int | float}，只包含值為數字的項目，
         非數字的值（例如字串、巢狀物件）會被跳過，不計入排行榜
     """
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1 or limit > MAX_LEADERBOARD_LIMIT:
+        raise StorageLimitExceededError(f"leaderboard limit 必須介於 1 到 {MAX_LEADERBOARD_LIMIT}")
+
     db = get_db()
     async with db.execute(
         "SELECT key, value_json FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key LIKE ? ESCAPE '\\'",
@@ -219,11 +235,51 @@ async def create_scheduled_task(
     Returns:
         新建立的任務 ID，可用於之後呼叫 cancel_scheduled_task 取消
     """
+    if (
+        not isinstance(delay_seconds, (int, float))
+        or isinstance(delay_seconds, bool)
+        or delay_seconds < MIN_SCHEDULE_DELAY_SECONDS
+        or delay_seconds > MAX_SCHEDULE_DELAY_SECONDS
+    ):
+        raise ScheduledTaskLimitExceededError(
+            f"delay_seconds 必須介於 {MIN_SCHEDULE_DELAY_SECONDS} 到 {MAX_SCHEDULE_DELAY_SECONDS} 秒"
+        )
+    if not isinstance(task_name, str) or not task_name or len(task_name) > MAX_SCHEDULED_TASK_NAME_LENGTH:
+        raise ScheduledTaskLimitExceededError(
+            f"task_name 長度必須介於 1 到 {MAX_SCHEDULED_TASK_NAME_LENGTH} 字元"
+        )
+    if not isinstance(payload, dict):
+        raise ScheduledTaskLimitExceededError("payload 必須是 JSON 物件")
+    if recurring_interval_seconds is not None and (
+        not isinstance(recurring_interval_seconds, int)
+        or isinstance(recurring_interval_seconds, bool)
+        or recurring_interval_seconds < MIN_RECURRING_INTERVAL_SECONDS
+    ):
+        raise ScheduledTaskLimitExceededError(
+            f"recurring_interval_seconds 必須至少 {MIN_RECURRING_INTERVAL_SECONDS} 秒"
+        )
+
+    payload_json = json.dumps({"task_name": task_name, "payload": payload})
+    if len(payload_json.encode("utf-8")) > MAX_SCHEDULED_TASK_PAYLOAD_BYTES:
+        raise ScheduledTaskLimitExceededError(
+            f"payload 大小超過上限（{MAX_SCHEDULED_TASK_PAYLOAD_BYTES} bytes）"
+        )
+
+    db = get_db()
+    async with db.execute(
+        "SELECT COUNT(*) FROM plugin_scheduled_tasks WHERE guild_id = ? AND plugin_id = ?",
+        (guild_id, plugin_id),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if row[0] >= MAX_SCHEDULED_TASKS_PER_INSTALLATION:
+        raise ScheduledTaskLimitExceededError(
+            f"這個安裝的排程任務數量已達上限（{MAX_SCHEDULED_TASKS_PER_INSTALLATION} 筆）"
+        )
+
     task_id = str(uuid.uuid4())
     run_at = datetime.datetime.fromtimestamp(
         time.time() + delay_seconds, tz=datetime.timezone.utc
     ).isoformat()
-    db = get_db()
     await db.execute(
         """
         INSERT INTO plugin_scheduled_tasks
@@ -235,7 +291,7 @@ async def create_scheduled_task(
             guild_id,
             plugin_id,
             run_at,
-            json.dumps({"task_name": task_name, "payload": payload}),
+            payload_json,
             recurring_interval_seconds,
         ),
     )

@@ -164,6 +164,43 @@ async def test_suspend_refreshes_suspension_cache(monkeypatch, capsys) -> None:
     assert "已停權外掛" in capsys.readouterr().out
 
 
+async def test_unsuspend_refreshes_suspension_cache(monkeypatch, capsys) -> None:
+    """
+    unsuspend 指令成功後也應立即重新同步停權快取，跟 suspend 對稱，
+    否則已解除停權的外掛還要等最多 10 秒的輪詢週期才會真的恢復執行。
+    """
+    refresh_called = False
+    fake_database = object()
+
+    async def fake_unsuspend_plugin(plugin_id: str) -> bool:
+        return plugin_id == "temp_role_punishment"
+
+    async def fake_refresh_from_database(database_connection: object) -> None:
+        nonlocal refresh_called
+        assert database_connection is fake_database
+        refresh_called = True
+
+    monkeypatch.setattr(admin_console.repository, "unsuspend_plugin", fake_unsuspend_plugin)
+    monkeypatch.setattr(admin_console.suspension, "refresh_from_database", fake_refresh_from_database)
+    monkeypatch.setattr(admin_console, "get_db", lambda: fake_database)
+
+    await admin_console.handle_command("admin plugin unsuspend temp_role_punishment")
+
+    assert refresh_called is True
+    assert "已解除外掛停權" in capsys.readouterr().out
+
+
+async def test_unsuspend_missing_plugin_reports_not_found(monkeypatch, capsys) -> None:
+    async def fake_unsuspend_plugin(plugin_id: str) -> bool:
+        return False
+
+    monkeypatch.setattr(admin_console.repository, "unsuspend_plugin", fake_unsuspend_plugin)
+
+    await admin_console.handle_command("admin plugin unsuspend does_not_exist")
+
+    assert "找不到外掛" in capsys.readouterr().out
+
+
 async def test_quota_set_updates_installation_override(monkeypatch, capsys) -> None:
     """
     quota set 指令應解析 execution/action 配額並呼叫 repository。
@@ -203,6 +240,36 @@ async def test_quota_set_updates_installation_override(monkeypatch, capsys) -> N
         "action_quota": None,
     }
     assert "已更新外掛安裝配額" in capsys.readouterr().out
+
+
+async def test_quota_set_rejects_negative_value(monkeypatch, capsys) -> None:
+    """
+    quota override 不接受負數，避免產生難以理解的保護設定。
+    """
+    update_called = False
+
+    async def fake_set_installation_quota_override(
+        guild_id: int,
+        plugin_id: str,
+        execution_quota: int | None,
+        action_quota: int | None,
+    ) -> bool:
+        nonlocal update_called
+        update_called = True
+        return True
+
+    monkeypatch.setattr(
+        admin_console.repository,
+        "set_installation_quota_override",
+        fake_set_installation_quota_override,
+    )
+
+    await admin_console.handle_command(
+        "admin plugin quota set 1111 temp_role_punishment execution=-1 action=10"
+    )
+
+    assert update_called is False
+    assert "配額不能是負數" in capsys.readouterr().out
 
 
 async def test_uninstall_purges_message_cache_when_no_subscription_remains(monkeypatch, capsys) -> None:

@@ -66,5 +66,5 @@ scam_image/
 # 本機規劃文件（規範、設計稿、計畫書等，不進版控）
 planning-docs/
 
-# 外掛平台子專案
-discord_plugin_platform/
+# 外掛平台子專案版控
+discord_plugin_platform/design.md

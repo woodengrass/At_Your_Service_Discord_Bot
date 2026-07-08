@@ -40,6 +40,11 @@ def cache_message(guild_id: int, channel_id: int, message_id: int, author_id: in
 
     _channel_guild_map[channel_id] = guild_id
     channel_queue = _channel_messages.setdefault(channel_id, deque())
+    for cached_message in list(channel_queue):
+        if cached_message["message_id"] == message_id:
+            channel_queue.remove(cached_message)
+            _total_entries -= 1
+            break
     channel_queue.append(
         {"message_id": message_id, "author_id": author_id, "content": content, "cached_at": time.time()}
     )

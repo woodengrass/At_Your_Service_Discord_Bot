@@ -1,0 +1,14 @@
+{
+  "name": "temp_role_punishment",
+  "version": "1.0.0",
+  "description": "管理員可暫時替換成員身分組，時間到後自動恢復原本身分組。",
+  "capability_api_version": 1,
+  "event_hooks": ["on_slash_command", "on_scheduled_task"],
+  "required_capabilities": ["manage_roles", "schedule_task", "send_message"],
+  "slash_commands": [
+    {
+      "name": "temp_role",
+      "description": "暫時替換成員身分組並在時間到後自動還原"
+    }
+  ]
+}

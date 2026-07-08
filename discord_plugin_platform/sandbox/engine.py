@@ -164,10 +164,10 @@ def run_with_limits(runtime: lua54.LuaRuntime, lua_function_name: str, payload: 
     action_queue = runtime.globals()["_action_queue"]
     if action_queue is None:
         return []
-    return [_lua_value_to_python(action) for action in action_queue.values()]
+    return [lua_value_to_python(action) for action in action_queue.values()]
 
 
-def _lua_value_to_python(value):
+def lua_value_to_python(value):
     """
     把 Lua table（可能巢狀）遞迴轉換成純 Python dict/list，非 table 的值原樣傳回。
 
@@ -188,5 +188,5 @@ def _lua_value_to_python(value):
     keys = [key for key, _ in items]
     is_array = keys == list(range(1, len(keys) + 1))
     if is_array:
-        return [_lua_value_to_python(item_value) for _, item_value in items]
-    return {key: _lua_value_to_python(item_value) for key, item_value in items}
+        return [lua_value_to_python(item_value) for _, item_value in items]
+    return {key: lua_value_to_python(item_value) for key, item_value in items}

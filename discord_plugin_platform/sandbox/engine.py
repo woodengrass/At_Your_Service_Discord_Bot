@@ -1,11 +1,33 @@
 """
 純沙箱機制：建立乾淨、有資源限制的空 Lua VM，完全不認識 Discord 或能力 API 是什麼。
-第一階段開發重點，見 discord_plugin_platform/design.md 第 5.3、5.4 節。
+見 discord_plugin_platform/design.md 第 5.3、5.4 節。
 """
+
+import logging
+
+import lupa.lua54 as lua54
+
+logger = logging.getLogger(__name__)
 
 INSTRUCTION_LIMIT = 500_000
 MEMORY_LIMIT_BYTES = 16 * 1024 * 1024
-SANDBOX_GLOBAL_ALLOWLIST = {"pairs", "ipairs", "type", "tostring", "tonumber", "table", "string", "math"}
+MEMORY_LIMIT_KB = MEMORY_LIMIT_BYTES // 1024
+HOOK_CHECK_INTERVAL = 1000  # 每執行這麼多條指令，才觸發一次步數/記憶體檢查
+
+# 只保留這些安全的基礎函式庫，其餘全域函式一律清空。
+# 刻意不放行 coroutine：debug.sethook 安裝的鉤子預設只作用在主執行緒，
+# 外掛若自己開一個 coroutine 在裡面跑無窮迴圈，會完全繞過步數限制鉤子，
+# 這是設計階段沒發現、寫測試時才找到的第 6 種逃逸手法，見 design.md 第 5.3 節。
+SANDBOX_GLOBAL_ALLOWLIST = {
+    "pairs", "ipairs", "next", "type", "tostring", "tonumber",
+    "table", "string", "math", "select", "unpack",
+    "rawequal", "rawget", "rawset", "rawlen",
+    "error", "assert",
+}
+# 刻意不放行 pcall／xpcall：步數/記憶體上限鉤子是靠呼叫 error() 中止執行，
+# 如果外掛能用 pcall 包住自己的無窮迴圈，鉤子丟出的 error 會被 pcall 接住、
+# 外掛可以立刻重新進入下一輪迴圈，等於完全繞過步數上限，實測會讓執行永遠不停。
+# 這是第 7 種逃逸手法，設計階段沒發現，寫沙箱程式碼時才實測抓到，見 design.md 第 5.3 節。
 
 
 class SandboxExecutionError(Exception):
@@ -14,28 +36,109 @@ class SandboxExecutionError(Exception):
     """
 
 
-def create_sandbox_runtime():
+def create_sandbox_runtime() -> lua54.LuaRuntime:
     """
     建立一個乾淨的 Lua VM，移除所有危險全域函式，套用執行步數與記憶體限制。
 
+    刻意指定 lupa.lua54（穩定版 Lua 5.4），不用 lupa.LuaRuntime 預設值：
+    lupa 2.8 預設會解析到 lupa.lua55（實驗性 Lua 5.5 build），實測發現這個 build 的
+    collectgarbage("count") 不會正確回報字串配置的記憶體用量（配置 47MB 的字串資料，
+    count() 只增加 3.6KB），導致以字串為主的記憶體炸彈完全不會被攔截，是嚴重的安全漏洞。
+    同樣的測試在 lupa.lua54 下 count() 正確回報約 48MB 增量。見 design.md 第 5.3、5.4 節。
+
     Returns:
         設定好白名單全域環境與資源限制的 LuaRuntime
+    """
+    runtime = lua54.LuaRuntime(
+        register_eval=False,
+        register_builtins=False,
+        unpack_returned_tuples=True,
+    )
+
+    _install_resource_limit_hook(runtime)
+    _strip_globals_to_allowlist(runtime)
+
+    return runtime
+
+
+def _install_resource_limit_hook(runtime: lua54.LuaRuntime) -> None:
+    """
+    安裝執行步數與記憶體限制的鉤子，必須在 _strip_globals_to_allowlist() 之前呼叫，
+    因為這一步需要用到 debug 函式庫本身；鉤子一旦透過 debug.sethook 安裝成功，
+    之後把 debug 從全域表移除也不影響鉤子繼續運作（鉤子是直譯器層級的機制，
+    不是透過 Lua 程式碼持續呼叫 debug 表才生效）。
+
+    Args:
+        runtime: 尚未清空全域表的 LuaRuntime
 
     Raises:
-        NotImplementedError: 待第一階段實作，需要先確認 lupa 的 register_eval／register_builtins
-            關閉方式（見 design.md 第 5.3 節第 3 點），並寫攻擊測試驗證沒有橋接洩漏
+        SandboxExecutionError: 鉤子安裝失敗（不應該發生，除非 lupa／LuaJIT 版本不支援 debug.sethook）
     """
-    raise NotImplementedError("第一階段實作項目，動工前請先讀 design.md 第 5.3、5.4 節")
+    max_hook_calls = INSTRUCTION_LIMIT // HOOK_CHECK_INTERVAL
+    install_hook_code = f"""
+    -- 先把 collectgarbage 存成 local 變數（鉤子閉包的 upvalue），
+    -- 之後清空全域表時會把 collectgarbage 從 _G 移除，鉤子本身仍能透過這個
+    -- local 參照繼續呼叫；這同時也是刻意的安全設計：外掛程式碼本身不該能直接
+    -- 呼叫 collectgarbage（例如 collectgarbage("stop") 會讓外掛自己關掉 GC，
+    -- 等於繞過記憶體上限檢查），清空之後外掛就完全拿不到這個函式了。
+    local collectgarbage_ref = collectgarbage
+    local hook_calls = 0
+    debug.sethook(function()
+        hook_calls = hook_calls + 1
+        if hook_calls > {max_hook_calls} then
+            error("執行步數超過上限（{INSTRUCTION_LIMIT} 步）")
+        end
+        if collectgarbage_ref("count") > {MEMORY_LIMIT_KB} then
+            error("記憶體用量超過上限（{MEMORY_LIMIT_KB}KB）")
+        end
+    end, "", {HOOK_CHECK_INTERVAL})
+    """
+    try:
+        runtime.execute(install_hook_code)
+    except Exception as error:
+        raise SandboxExecutionError(f"安裝資源限制鉤子失敗：{error}") from error
 
 
-def run_with_limits(runtime, lua_function_name: str, payload: dict) -> list[dict]:
+def _strip_globals_to_allowlist(runtime: lua54.LuaRuntime) -> None:
+    """
+    把不在 SANDBOX_GLOBAL_ALLOWLIST 裡的全域函式全部清空，只留下安全的基礎函式庫。
+    必須在 _install_resource_limit_hook() 之後呼叫。
+
+    Args:
+        runtime: 已經裝好資源限制鉤子的 LuaRuntime
+    """
+    globals_table = runtime.globals()
+    keys_to_remove = [key for key in globals_table.keys() if key not in SANDBOX_GLOBAL_ALLOWLIST]
+    for key in keys_to_remove:
+        globals_table[key] = None
+
+
+def execute_untrusted_code(runtime: lua54.LuaRuntime, lua_code: str) -> None:
+    """
+    在沙箱裡執行一段 Lua 原始碼，資源限制鉤子若觸發會讓這裡拋出例外。
+
+    Args:
+        runtime: create_sandbox_runtime() 建立的 LuaRuntime
+        lua_code: 要執行的 Lua 原始碼
+
+    Raises:
+        SandboxExecutionError: 執行期間超過步數/記憶體上限，或程式碼本身丟出未捕捉例外
+    """
+    try:
+        runtime.execute(lua_code)
+    except Exception as error:
+        raise SandboxExecutionError(str(error)) from error
+
+
+def run_with_limits(runtime: lua54.LuaRuntime, lua_function_name: str, payload: dict) -> list[dict]:
     """
     在資源限制下執行沙箱內指定的 Lua 函式。
 
     Args:
-        runtime: create_sandbox_runtime() 建立的 LuaRuntime
-        lua_function_name: 要呼叫的外掛事件處理函式名稱
-        payload: 事件資料
+        runtime: create_sandbox_runtime() 建立的 LuaRuntime，且已經由
+            sandbox.capability_bindings.bind_capabilities() 綁定好能力函式與動作佇列
+        lua_function_name: 要呼叫的外掛事件處理函式名稱（例如 "on_message"）
+        payload: 事件資料，會轉換成 Lua table 傳入
 
     Returns:
         外掛執行期間排入佇列的動作清單
@@ -43,6 +146,47 @@ def run_with_limits(runtime, lua_function_name: str, payload: dict) -> list[dict
     Raises:
         SandboxExecutionError: 執行逾時、超過資源限制，或執行中途拋出未捕捉例外
             （中途崩潰時整批動作清單回退，不回傳任何部分結果，見 design.md 第 3.2 節）
-        NotImplementedError: 待第一階段實作
+
+    Note:
+        這裡只靠步數／記憶體鉤子攔截失控的 Lua 程式碼；真正的行程層級逾時保護
+        （例如鉤子本身因未知原因沒有觸發）留給 sandbox/worker.py 用獨立進程 + 逾時
+        機制處理，這裡不重複做一層無法真正搶佔同步呼叫的 asyncio 逾時。
     """
-    raise NotImplementedError("第一階段實作項目")
+    lua_function = runtime.globals()[lua_function_name]
+    if lua_function is None:
+        raise SandboxExecutionError(f"外掛沒有定義事件處理函式：{lua_function_name}")
+
+    try:
+        lua_function(runtime.table_from(payload))
+    except Exception as error:
+        raise SandboxExecutionError(str(error)) from error
+
+    action_queue = runtime.globals()["_action_queue"]
+    if action_queue is None:
+        return []
+    return [lua_value_to_python(action) for action in action_queue.values()]
+
+
+def lua_value_to_python(value):
+    """
+    把 Lua table（可能巢狀）遞迴轉換成純 Python dict/list，非 table 的值原樣傳回。
+
+    Lua 沒有原生陣列型別，array-like table（key 是從 1 開始連續的整數）轉成 list，
+    其餘 table 轉成 dict；action_queue 裡的 params 常常有巢狀 table（例如身分組 ID 陣列），
+    只轉換最外層會讓呼叫端拿到殘留的 Lua table 物件，無法正常做 JSON 序列化或稽核紀錄寫入。
+
+    Args:
+        value: 任意 Lua 回傳值（table、字串、數字、布林、None）
+
+    Returns:
+        遞迴轉換後的純 Python 值
+    """
+    if lua54.lua_type(value) != "table":
+        return value
+
+    items = list(value.items())
+    keys = [key for key, _ in items]
+    is_array = keys == list(range(1, len(keys) + 1))
+    if is_array:
+        return [lua_value_to_python(item_value) for _, item_value in items]
+    return {key: lua_value_to_python(item_value) for key, item_value in items}

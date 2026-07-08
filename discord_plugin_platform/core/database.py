@@ -1,4 +1,5 @@
 import os
+import re
 
 import aiosqlite
 
@@ -111,17 +112,46 @@ async def init_db() -> None:
         CREATE TABLE IF NOT EXISTS plugin_review_log (
             log_id INTEGER PRIMARY KEY AUTOINCREMENT,
             plugin_id TEXT NOT NULL,
+            version TEXT,
             reviewer_action TEXT NOT NULL,
             reason TEXT,
             created_at TEXT NOT NULL
         )
         """
     )
+    await _add_column_if_missing("plugin_review_log", "version", "TEXT")
     await _connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_plugin_review_log_plugin ON plugin_review_log (plugin_id)"
     )
 
     await _connection.commit()
+
+
+_SQL_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_ALLOWED_COLUMN_TYPES = {"INTEGER", "TEXT", "REAL", "BLOB"}
+
+
+async def _add_column_if_missing(table: str, column: str, column_type: str) -> None:
+    """
+    若指定資料表缺少欄位則新增，讓既有開發資料庫能安全升級。
+
+    Args:
+        table: 資料表名稱
+        column: 欄位名稱
+        column_type: 欄位型別
+
+    Raises:
+        ValueError: table/column/column_type 不合法時拋出
+    """
+    if not _SQL_IDENTIFIER_PATTERN.match(table) or not _SQL_IDENTIFIER_PATTERN.match(column):
+        raise ValueError(f"不合法的資料表或欄位名稱：table={table}, column={column}")
+    if column_type not in _ALLOWED_COLUMN_TYPES:
+        raise ValueError(f"不合法的欄位型別：{column_type}")
+
+    async with _connection.execute(f"PRAGMA table_info({table})") as cursor:
+        columns = {row[1] async for row in cursor}
+    if column not in columns:
+        await _connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
 
 
 def get_db() -> aiosqlite.Connection:

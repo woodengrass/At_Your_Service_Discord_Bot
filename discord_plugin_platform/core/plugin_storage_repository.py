@@ -14,6 +14,20 @@ from typing import Any
 
 from core.database import get_db
 
+# storage 能力沒有任何大小/數量上限的話，外掛可以把 SQLite 當成無限儲存空間濫用
+# （不管是惡意還是單純寫壞的迴圈），這幾個常數就是防這個的軟性上限，數字不是
+# 精算出來的，是「一般排行榜/計數器類外掛用得很夠、濫用起來很快就會撞到」的量級，
+# 之後有真實用量數據再校準（比照 design.md 第 5.4 節資源限制的做法）。
+MAX_STORAGE_KEY_LENGTH = 256
+MAX_STORAGE_VALUE_BYTES = 64 * 1024
+MAX_STORAGE_KEYS_PER_INSTALLATION = 1000
+
+
+class StorageLimitExceededError(Exception):
+    """
+    storage_set() 超過 key 長度、value 大小或每個安裝的 key 數量上限時拋出。
+    """
+
 
 def _now_iso() -> str:
     """
@@ -71,8 +85,36 @@ async def storage_set(guild_id: int, plugin_id: str, key: str, value: Any) -> No
         plugin_id: 外掛 ID
         key: 資料鍵值
         value: 要儲存的值，必須是可以 JSON 序列化的型別
+
+    Raises:
+        StorageLimitExceededError: key 長度、value 大小超過上限，或這個安裝已經用滿
+            MAX_STORAGE_KEYS_PER_INSTALLATION 筆資料且這是一個新 key（覆蓋既有 key 不受此限）
     """
+    if len(key) > MAX_STORAGE_KEY_LENGTH:
+        raise StorageLimitExceededError(f"key 長度超過上限（{MAX_STORAGE_KEY_LENGTH} 字元）")
+
+    value_json = json.dumps(value)
+    if len(value_json.encode("utf-8")) > MAX_STORAGE_VALUE_BYTES:
+        raise StorageLimitExceededError(f"value 大小超過上限（{MAX_STORAGE_VALUE_BYTES} bytes）")
+
     db = get_db()
+    async with db.execute(
+        "SELECT 1 FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key = ?",
+        (guild_id, plugin_id, key),
+    ) as cursor:
+        key_already_exists = await cursor.fetchone() is not None
+
+    if not key_already_exists:
+        async with db.execute(
+            "SELECT COUNT(*) FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ?",
+            (guild_id, plugin_id),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row[0] >= MAX_STORAGE_KEYS_PER_INSTALLATION:
+            raise StorageLimitExceededError(
+                f"這個安裝的 storage key 數量已達上限（{MAX_STORAGE_KEYS_PER_INSTALLATION} 筆）"
+            )
+
     await db.execute(
         """
         INSERT INTO plugin_kv_store (guild_id, plugin_id, key, value_json, updated_at)
@@ -80,7 +122,7 @@ async def storage_set(guild_id: int, plugin_id: str, key: str, value: Any) -> No
         ON CONFLICT (guild_id, plugin_id, key)
         DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at
         """,
-        (guild_id, plugin_id, key, json.dumps(value), _now_iso()),
+        (guild_id, plugin_id, key, value_json, _now_iso()),
     )
     await db.commit()
 

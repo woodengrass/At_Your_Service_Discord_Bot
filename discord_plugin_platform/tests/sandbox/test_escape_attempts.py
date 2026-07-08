@@ -43,8 +43,24 @@ def test_lupa_python_bridge_is_disabled():
 
 def test_single_call_memory_bomb_is_capped():
     """
-    嘗試用 string.rep 之類的單一呼叫瞬間分配大量記憶體，確認資源限制鉤子仍然攔截得到
-    （鉤子每 HOOK_CHECK_INTERVAL 條指令檢查一次記憶體用量，string.rep 本身執行時也會計入指令數）。
+    真正的單一呼叫記憶體炸彈：一個 string.rep 陳述式，後面沒有任何其他程式碼。
+
+    這跟「迴圈裡重複呼叫 string.rep」不一樣，也更危險：debug.sethook 的計數鉤子
+    只在 Lua 指令與指令「之間」才有機會被呼叫，C 函式（string.rep）執行期間完全
+    不會被打斷。如果外掛只有這一行陳述式，鉤子可能永遠沒有機會在配置完成前後被
+    觸發，記憶體上限（collectgarbage 那個鉤子）完全派不上用場——這裡驗證的是
+    engine.py 另外針對 string.rep 加的輸出長度上限（_cap_dangerous_string_functions），
+    不是靠通用的步數/記憶體鉤子攔下來的。
+    """
+    runtime = create_sandbox_runtime()
+    with pytest.raises(SandboxExecutionError, match="string.rep"):
+        execute_untrusted_code(runtime, 'local bomb = string.rep("x", 1024 * 1024 * 1024)')
+
+
+def test_looped_memory_bomb_is_also_capped():
+    """
+    迴圈裡重複呼叫 string.rep（不是單一陳述式）也要被攔下來，這種情境下步數/記憶體
+    鉤子本身就足以攔截，跟上面單一陳述式的情境是兩種不同的攻擊面，都要測。
     """
     runtime = create_sandbox_runtime()
     with pytest.raises(SandboxExecutionError):

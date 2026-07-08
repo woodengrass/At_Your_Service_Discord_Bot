@@ -203,3 +203,29 @@ async def test_quota_set_updates_installation_override(monkeypatch, capsys) -> N
         "action_quota": None,
     }
     assert "已更新外掛安裝配額" in capsys.readouterr().out
+
+
+async def test_uninstall_purges_message_cache_when_no_subscription_remains(monkeypatch, capsys) -> None:
+    """
+    uninstall 後若該伺服器不再有 edit/delete 訂閱，應立即清除 message cache。
+    """
+    purged_guild_ids: list[int] = []
+
+    async def fake_delete_installation(guild_id: int, plugin_id: str) -> bool:
+        return True
+
+    async def fake_guild_has_event_subscription(guild_id: int, event_types: set[str]) -> bool:
+        assert event_types == admin_console.MESSAGE_CACHE_EVENTS
+        return False
+
+    def fake_purge_guild(guild_id: int) -> None:
+        purged_guild_ids.append(guild_id)
+
+    monkeypatch.setattr(admin_console.repository, "delete_installation", fake_delete_installation)
+    monkeypatch.setattr(admin_console.repository, "guild_has_event_subscription", fake_guild_has_event_subscription)
+    monkeypatch.setattr(admin_console.message_cache, "purge_guild", fake_purge_guild)
+
+    await admin_console.handle_command("admin plugin uninstall 1111 temp_role_punishment")
+
+    assert purged_guild_ids == [1111]
+    assert "已移除外掛安裝" in capsys.readouterr().out

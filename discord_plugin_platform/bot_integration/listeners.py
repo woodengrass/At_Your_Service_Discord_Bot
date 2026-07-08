@@ -222,14 +222,17 @@ class PluginPlatformListeners(commands.Cog):
         for scheduled_task in due_tasks:
             try:
                 task_payload = json.loads(scheduled_task["payload_json"])
-                await dispatch_event(
+                dispatch_succeeded = await dispatch_event(
                     scheduled_task["guild_id"],
                     "on_scheduled_task",
                     {
                         "task_name": task_payload["task_name"],
                         "payload": task_payload["payload"],
                     },
+                    target_plugin_id=scheduled_task["plugin_id"],
                 )
+                if not dispatch_succeeded:
+                    continue
                 recurring_interval_seconds = scheduled_task["recurring_interval_seconds"]
                 if recurring_interval_seconds is None:
                     await repository.delete_scheduled_task(scheduled_task["task_id"])

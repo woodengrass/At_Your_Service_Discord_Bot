@@ -8,7 +8,7 @@
 import logging
 import shlex
 
-from core import repository, suspension
+from core import message_cache, repository, suspension
 from core.database import get_db
 from core.manifest import ManifestValidationError, parse_manifest
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 HELP_TEXT = """
 [外掛平台管理工具] 可用指令（直接在終端機輸入後按 Enter）：
-  admin plugin list                                          列出所有已上架外掛
+  admin plugin list                                          列出所有外掛
   admin plugin review approve <plugin_id>                    核准待審核外掛，轉為上架狀態
   admin plugin review reject <plugin_id> <reason>             退回待審核外掛並記錄原因
   admin plugin install <guild_id> <plugin_id>                 安裝外掛到指定伺服器
@@ -27,6 +27,7 @@ HELP_TEXT = """
 """
 
 QUOTA_NAMES = {"execution", "action"}
+MESSAGE_CACHE_EVENTS = {"on_message_edit", "on_message_delete"}
 
 
 def _parse_quota_value(value: str) -> int | None:
@@ -196,6 +197,8 @@ async def handle_command(line: str) -> None:
             guild_id = int(parts[3])
             plugin_id = parts[4]
             deleted = await repository.delete_installation(guild_id, plugin_id)
+            if deleted and not await repository.guild_has_event_subscription(guild_id, MESSAGE_CACHE_EVENTS):
+                message_cache.purge_guild(guild_id)
             print("已移除外掛安裝。" if deleted else f"找不到安裝紀錄：{guild_id}/{plugin_id}")
         elif command == "suspend" and len(parts) == 4:
             plugin_id = parts[3]

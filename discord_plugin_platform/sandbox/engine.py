@@ -14,6 +14,14 @@ MEMORY_LIMIT_BYTES = 16 * 1024 * 1024
 MEMORY_LIMIT_KB = MEMORY_LIMIT_BYTES // 1024
 HOOK_CHECK_INTERVAL = 1000  # 每執行這麼多條指令，才觸發一次步數/記憶體檢查
 
+# string.rep(s, n) 單一呼叫就能配置任意大小的記憶體，且整個呼叫在 Lua VM 眼中只算
+#「一條指令」——debug.sethook 的計數鉤子只在指令與指令「之間」才有機會被呼叫，
+# C 函式執行期間完全不會被打斷，所以像 string.rep("x", 1024^3) 這種單一陳述式、
+# 後面沒有其他程式碼的腳本，鉤子可能永遠沒有機會在配置完成前後被觸發，導致 16MB
+# 的記憶體軟上限完全沒用。這裡直接把單次可配置的長度上限設成跟整體記憶體上限一樣，
+# 見 create_sandbox_runtime() 裡 _cap_dangerous_string_functions() 的說明。
+MAX_SINGLE_STRING_ALLOCATION_BYTES = MEMORY_LIMIT_BYTES
+
 # 只保留這些安全的基礎函式庫，其餘全域函式一律清空。
 # 刻意不放行 coroutine：debug.sethook 安裝的鉤子預設只作用在主執行緒，
 # 外掛若自己開一個 coroutine 在裡面跑無窮迴圈，會完全繞過步數限制鉤子，
@@ -56,9 +64,44 @@ def create_sandbox_runtime() -> lua54.LuaRuntime:
     )
 
     _install_resource_limit_hook(runtime)
+    _cap_dangerous_string_functions(runtime)
     _strip_globals_to_allowlist(runtime)
 
     return runtime
+
+
+def _cap_dangerous_string_functions(runtime: lua54.LuaRuntime) -> None:
+    """
+    把 string.rep 換成一個會先檢查輸出長度上限的版本，防止單一呼叫瞬間配置
+    超過 MAX_SINGLE_STRING_ALLOCATION_BYTES 的記憶體。
+
+    背景：debug.sethook 的計數鉤子只在 Lua 指令與指令「之間」才有機會被呼叫，
+    C 函式（例如 string.rep）執行期間完全不會被打斷；如果外掛程式碼是
+    `local bomb = string.rep("x", 1024^3)` 這種單一陳述式、後面沒有其他程式碼
+    的腳本，鉤子可能永遠沒有機會在配置完成前後被觸發，導致記憶體上限完全沒用
+    （design.md 第 5.3 節第 5 種逃逸手法，也是實測才發現原本的迴圈型測試沒有真的
+    驗證到這個情境）。這裡直接在呼叫前用 Lua 算出結果長度，超過上限就直接 error()，
+    不讓底層真正配置那塊記憶體。
+
+    Args:
+        runtime: 尚未清空全域表的 LuaRuntime（string 函式庫本身在白名單內，不會被清空）
+    """
+    cap_string_rep_code = f"""
+    local raw_string_rep = string.rep
+    string.rep = function(s, n, sep)
+        local separator_length = sep and #sep or 0
+        local repeat_count = n or 0
+        local estimated_length = (#s + separator_length) * repeat_count
+        if estimated_length > {MAX_SINGLE_STRING_ALLOCATION_BYTES} then
+            error("string.rep 單次配置長度超過上限（{MAX_SINGLE_STRING_ALLOCATION_BYTES} bytes）")
+        end
+        return raw_string_rep(s, n, sep)
+    end
+    """
+    try:
+        runtime.execute(cap_string_rep_code)
+    except Exception as error:
+        raise SandboxExecutionError(f"套用 string.rep 上限失敗：{error}") from error
 
 
 def _install_resource_limit_hook(runtime: lua54.LuaRuntime) -> None:
@@ -171,9 +214,16 @@ def lua_value_to_python(value):
     """
     把 Lua table（可能巢狀）遞迴轉換成純 Python dict/list，非 table 的值原樣傳回。
 
-    Lua 沒有原生陣列型別，array-like table（key 是從 1 開始連續的整數）轉成 list，
-    其餘 table 轉成 dict；action_queue 裡的 params 常常有巢狀 table（例如身分組 ID 陣列），
-    只轉換最外層會讓呼叫端拿到殘留的 Lua table 物件，無法正常做 JSON 序列化或稽核紀錄寫入。
+    Lua 沒有原生陣列型別，array-like table（key 剛好是從 1 到 n 的連續整數，不管
+    順序為何）轉成 list，其餘 table 轉成 dict；action_queue 裡的 params 常常有巢狀
+    table（例如身分組 ID 陣列），只轉換最外層會讓呼叫端拿到殘留的 Lua table 物件，
+    無法正常做 JSON 序列化或稽核紀錄寫入。
+
+    判斷是不是 array-like 時看的是 key 的「集合」剛好等於 {1, ..., n}，不能只看
+    `value.items()` 回傳的順序跟 [1, 2, ..., n] 是否剛好一樣——Lua table 的雜湊部分
+    在某些操作後（例如先設定又刪除元素）遍歷順序不保證跟 key 大小一致，只比對順序
+    會把貨真價實的 array-like table 誤判成 dict，資料本身雖然沒壞但型別不穩定，
+    下游程式碼可能一下拿到 list 一下拿到 dict。
 
     Args:
         value: 任意 Lua 回傳值（table、字串、數字、布林、None）
@@ -184,9 +234,8 @@ def lua_value_to_python(value):
     if lua54.lua_type(value) != "table":
         return value
 
-    items = list(value.items())
-    keys = [key for key, _ in items]
-    is_array = keys == list(range(1, len(keys) + 1))
+    items = dict(value.items())
+    is_array = set(items.keys()) == set(range(1, len(items) + 1))
     if is_array:
-        return [lua_value_to_python(item_value) for _, item_value in items]
-    return {key: lua_value_to_python(item_value) for key, item_value in items}
+        return [lua_value_to_python(items[index]) for index in range(1, len(items) + 1)]
+    return {key: lua_value_to_python(item_value) for key, item_value in items.items()}

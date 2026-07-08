@@ -229,19 +229,25 @@ async def approve_plugin(plugin_id: str) -> bool:
     """
     db = get_db()
     try:
+        async with db.execute(
+            "SELECT latest_version FROM plugins WHERE plugin_id = ?",
+            (plugin_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row is None:
+            await db.commit()
+            return False
+        latest_version = row[0]
         cursor = await db.execute(
             "UPDATE plugins SET status = 'approved' WHERE plugin_id = ?",
             (plugin_id,),
         )
-        if cursor.rowcount == 0:
-            await db.commit()
-            return False
         await db.execute(
             """
-            INSERT INTO plugin_review_log (plugin_id, reviewer_action, reason, created_at)
-            VALUES (?, 'approved', NULL, ?)
+            INSERT INTO plugin_review_log (plugin_id, version, reviewer_action, reason, created_at)
+            VALUES (?, ?, 'approved', NULL, ?)
             """,
-            (plugin_id, _now_iso()),
+            (plugin_id, latest_version, _now_iso()),
         )
         await db.commit()
         return True
@@ -264,19 +270,25 @@ async def reject_plugin(plugin_id: str, reason: str) -> bool:
     """
     db = get_db()
     try:
+        async with db.execute(
+            "SELECT latest_version FROM plugins WHERE plugin_id = ?",
+            (plugin_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row is None:
+            await db.commit()
+            return False
+        latest_version = row[0]
         cursor = await db.execute(
             "UPDATE plugins SET status = 'rejected' WHERE plugin_id = ?",
             (plugin_id,),
         )
-        if cursor.rowcount == 0:
-            await db.commit()
-            return False
         await db.execute(
             """
-            INSERT INTO plugin_review_log (plugin_id, reviewer_action, reason, created_at)
-            VALUES (?, 'rejected', ?, ?)
+            INSERT INTO plugin_review_log (plugin_id, version, reviewer_action, reason, created_at)
+            VALUES (?, ?, 'rejected', ?, ?)
             """,
-            (plugin_id, reason, _now_iso()),
+            (plugin_id, latest_version, reason, _now_iso()),
         )
         await db.commit()
         return True
@@ -447,8 +459,11 @@ async def guild_has_event_subscription(guild_id: int, event_types: set[str]) -> 
         JOIN plugin_versions
           ON plugin_versions.plugin_id = plugin_installations.plugin_id
          AND plugin_versions.version = plugin_installations.installed_version
+        JOIN plugins
+          ON plugins.plugin_id = plugin_installations.plugin_id
         WHERE plugin_installations.guild_id = ?
           AND plugin_installations.enabled = 1
+          AND plugins.status != 'suspended'
         """,
         (guild_id,),
     ) as cursor:

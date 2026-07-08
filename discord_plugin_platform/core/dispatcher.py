@@ -14,7 +14,12 @@ logger = logging.getLogger(__name__)
 EXECUTION_TIMEOUT_SECONDS = 2  # 暫定值，待第二階段實測後校準，見 design.md 第 5.4 節
 
 
-async def dispatch_event(guild_id: int, event_type: str, event_payload: dict) -> None:
+async def dispatch_event(
+    guild_id: int,
+    event_type: str,
+    event_payload: dict,
+    target_plugin_id: str | None = None,
+) -> bool:
     """
     把 Discord 事件分派給該伺服器已安裝、有訂閱這個事件的外掛執行。
 
@@ -25,11 +30,19 @@ async def dispatch_event(guild_id: int, event_type: str, event_payload: dict) ->
         guild_id: 伺服器 ID
         event_type: 事件名稱，對應附錄 A 定義的事件
         event_payload: 事件資料
+        target_plugin_id: 若指定，只分派給該外掛；仍會保留停權、啟用狀態、事件訂閱與配額檢查
+
+    Returns:
+        True 表示至少一個目標外掛成功完成；若沒有目標外掛成功則回傳 False
     """
     installations = await repository.get_enabled_installations_for_guild(guild_id)
+    has_successful_execution = False
 
     for installation in installations:
         plugin_id = installation["plugin_id"]
+
+        if target_plugin_id is not None and plugin_id != target_plugin_id:
+            continue
 
         if not _installation_handles_event(installation, event_type):
             continue
@@ -87,8 +100,11 @@ async def dispatch_event(guild_id: int, event_type: str, event_payload: dict) ->
 
         await _execute_actions(guild_id, actions)
         await repository.log_execution(
-            guild_id, plugin_id, event_type, str(actions), execution_ms, "success"
+            guild_id, plugin_id, event_type, json.dumps(actions, ensure_ascii=False), execution_ms, "success"
         )
+        has_successful_execution = True
+
+    return has_successful_execution
 
 
 def _validate_actions(installation: dict, actions: list[dict]) -> bool:

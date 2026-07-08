@@ -118,13 +118,13 @@ async def test_approve_plugin_updates_status_and_logs_review(plugin_database: ai
     assert await repository.approve_plugin("temp_role_punishment") is True
     plugin = await repository.get_plugin("temp_role_punishment")
     async with plugin_database.execute(
-        "SELECT reviewer_action, reason FROM plugin_review_log WHERE plugin_id = ?",
+        "SELECT version, reviewer_action, reason FROM plugin_review_log WHERE plugin_id = ?",
         ("temp_role_punishment",),
     ) as cursor:
         row = await cursor.fetchone()
 
     assert plugin["status"] == "approved"
-    assert row == ("approved", None)
+    assert row == ("1.0.0", "approved", None)
 
 
 async def test_reject_plugin_updates_status_and_logs_reason(plugin_database: aiosqlite.Connection) -> None:
@@ -133,13 +133,13 @@ async def test_reject_plugin_updates_status_and_logs_reason(plugin_database: aio
     assert await repository.reject_plugin("temp_role_punishment", "manifest 欄位不完整") is True
     plugin = await repository.get_plugin("temp_role_punishment")
     async with plugin_database.execute(
-        "SELECT reviewer_action, reason FROM plugin_review_log WHERE plugin_id = ?",
+        "SELECT version, reviewer_action, reason FROM plugin_review_log WHERE plugin_id = ?",
         ("temp_role_punishment",),
     ) as cursor:
         row = await cursor.fetchone()
 
     assert plugin["status"] == "rejected"
-    assert row == ("rejected", "manifest 欄位不完整")
+    assert row == ("1.0.0", "rejected", "manifest 欄位不完整")
 
 
 async def test_review_unknown_plugin_returns_false(plugin_database: aiosqlite.Connection) -> None:
@@ -287,3 +287,33 @@ async def test_guild_has_event_subscription(plugin_database: aiosqlite.Connectio
 
     assert await repository.guild_has_event_subscription(1111, {"on_message_edit"}) is True
     assert await repository.guild_has_event_subscription(1111, {"on_voice_state_update"}) is False
+
+
+async def test_guild_has_event_subscription_ignores_suspended_plugins(
+    plugin_database: aiosqlite.Connection,
+) -> None:
+    manifest_json = json.dumps(
+        {
+            "name": "message_logger",
+            "version": "1.0.0",
+            "description": "記錄訊息編輯",
+            "capability_api_version": 1,
+            "event_hooks": ["on_message_edit"],
+            "required_capabilities": ["storage"],
+            "slash_commands": [],
+        },
+        ensure_ascii=False,
+    )
+    await repository.submit_plugin_version(
+        plugin_id="message_logger",
+        author_id=1234,
+        name="message_logger",
+        version="1.0.0",
+        manifest_json=manifest_json,
+        source_code="function on_message_edit(payload) end",
+        capability_api_version=1,
+    )
+    await repository.create_installation(1111, "message_logger", "1.0.0", ["storage"])
+    await repository.suspend_plugin("message_logger")
+
+    assert await repository.guild_has_event_subscription(1111, {"on_message_edit"}) is False

@@ -22,10 +22,16 @@ async def test_on_message_dispatches_payload_and_caches_when_needed(monkeypatch)
     """
     on_message 應轉發訊息事件，且只在有 edit/delete 訂閱時快取內容。
     """
-    captured_events: list[tuple[int, str, dict]] = []
+    captured_events: list[tuple[int, str, dict, str | None]] = []
 
-    async def fake_dispatch_event(guild_id: int, event_type: str, event_payload: dict) -> None:
-        captured_events.append((guild_id, event_type, event_payload))
+    async def fake_dispatch_event(
+        guild_id: int,
+        event_type: str,
+        event_payload: dict,
+        target_plugin_id: str | None = None,
+    ) -> bool:
+        captured_events.append((guild_id, event_type, event_payload, target_plugin_id))
+        return True
 
     async def fake_guild_has_event_subscription(guild_id: int, event_types: set[str]) -> bool:
         return guild_id == 1111 and event_types == listeners.MESSAGE_CACHE_EVENTS
@@ -56,6 +62,7 @@ async def test_on_message_dispatches_payload_and_caches_when_needed(monkeypatch)
                 "content": "hello",
                 "created_at": "2026-01-01T00:00:00+00:00",
             },
+            None,
         )
     ]
     assert message_cache.get_cached_message(4444, 3333)["content"] == "hello"
@@ -219,8 +226,11 @@ async def test_consume_due_scheduled_tasks_deletes_and_updates(monkeypatch) -> N
         updated_tasks.append((task_id, run_at))
         return True
 
-    async def fake_dispatch_event(guild_id: int, event_type: str, event_payload: dict) -> None:
-        captured_events.append((guild_id, event_type, event_payload))
+    async def fake_dispatch_event(
+        guild_id: int, event_type: str, event_payload: dict, target_plugin_id: str | None = None
+    ) -> bool:
+        captured_events.append((guild_id, event_type, event_payload, target_plugin_id))
+        return True
 
     monkeypatch.setattr(listeners.repository, "get_due_scheduled_tasks", fake_get_due_scheduled_tasks)
     monkeypatch.setattr(listeners.repository, "delete_scheduled_task", fake_delete_scheduled_task)
@@ -234,5 +244,53 @@ async def test_consume_due_scheduled_tasks_deletes_and_updates(monkeypatch) -> N
     assert [event[1] for event in captured_events] == ["on_scheduled_task", "on_scheduled_task"]
     assert captured_events[0][2] == {"task_name": "single_restore", "payload": {"kind": "single"}}
     assert captured_events[1][2] == {"task_name": "recurring_restore", "payload": {"kind": "recurring"}}
+    assert [event[3] for event in captured_events] == ["temp_role_punishment", "temp_role_punishment"]
     assert deleted_task_ids == ["single_task"]
     assert updated_tasks == [("recurring_task", "2026-01-01T00:01:00+00:00")]
+
+
+async def test_consume_due_scheduled_tasks_keeps_task_when_dispatch_fails(monkeypatch) -> None:
+    """
+    排程任務沒有成功分派時，不應刪除或更新 run_at，避免失敗後任務直接消失。
+    """
+    deleted_task_ids: list[str] = []
+    updated_tasks: list[tuple[str, str]] = []
+
+    async def fake_get_due_scheduled_tasks(now_iso: str) -> list[dict]:
+        return [
+            {
+                "task_id": "single_task",
+                "guild_id": 1111,
+                "plugin_id": "temp_role_punishment",
+                "run_at": "2026-01-01T00:00:00+00:00",
+                "payload_json": '{"task_name":"single_restore","payload":{"kind":"single"}}',
+                "recurring_interval_seconds": None,
+            }
+        ]
+
+    async def fake_delete_scheduled_task(task_id: str) -> None:
+        deleted_task_ids.append(task_id)
+
+    async def fake_update_scheduled_task_run_at(task_id: str, run_at: str) -> bool:
+        updated_tasks.append((task_id, run_at))
+        return True
+
+    async def fake_dispatch_event(
+        guild_id: int,
+        event_type: str,
+        event_payload: dict,
+        target_plugin_id: str | None = None,
+    ) -> bool:
+        return False
+
+    monkeypatch.setattr(listeners.repository, "get_due_scheduled_tasks", fake_get_due_scheduled_tasks)
+    monkeypatch.setattr(listeners.repository, "delete_scheduled_task", fake_delete_scheduled_task)
+    monkeypatch.setattr(listeners.repository, "update_scheduled_task_run_at", fake_update_scheduled_task_run_at)
+    monkeypatch.setattr(listeners, "dispatch_event", fake_dispatch_event)
+
+    cog = listeners.PluginPlatformListeners(FakeBot())
+
+    await cog.consume_due_scheduled_tasks()
+
+    assert deleted_task_ids == []
+    assert updated_tasks == []

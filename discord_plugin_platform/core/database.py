@@ -106,6 +106,21 @@ async def init_db() -> None:
         "CREATE INDEX IF NOT EXISTS idx_execution_log_guild_plugin ON plugin_execution_log (guild_id, plugin_id)"
     )
 
+    await _connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS plugin_review_log (
+            log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plugin_id TEXT NOT NULL,
+            reviewer_action TEXT NOT NULL,
+            reason TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    await _connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_plugin_review_log_plugin ON plugin_review_log (plugin_id)"
+    )
+
     await _connection.commit()
 
 

@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 
@@ -27,6 +28,9 @@ async def dispatch_event(guild_id: int, event_type: str, event_payload: dict) ->
     for installation in installations:
         plugin_id = installation["plugin_id"]
 
+        if not _installation_handles_event(installation, event_type):
+            continue
+
         if suspension.is_suspended(plugin_id):
             continue  # 已停權，完全不建立沙箱，不消耗任何執行資源
 
@@ -34,15 +38,29 @@ async def dispatch_event(guild_id: int, event_type: str, event_payload: dict) ->
             await repository.log_execution(guild_id, plugin_id, event_type, "[]", 0, "quota_exceeded")
             continue
 
+        source_code = await repository.get_plugin_source(plugin_id, installation["installed_version"])
+        if source_code is None:
+            await repository.log_execution(
+                guild_id,
+                plugin_id,
+                event_type,
+                "[]",
+                0,
+                "crashed",
+                "找不到外掛原始碼",
+            )
+            continue
+
+        granted_capabilities = set(json.loads(installation["granted_capabilities_json"]))
         started_at = time.monotonic()
         try:
             actions = await execute_plugin_event(
                 guild_id=guild_id,
                 plugin_id=plugin_id,
-                source_code="",  # 待補：從 plugin_versions 依 installed_version 載入原始碼
+                source_code=source_code,
                 event_type=event_type,
                 event_payload=event_payload,
-                granted_capabilities=set(),  # 待補：解析 installation["granted_capabilities_json"]
+                granted_capabilities=granted_capabilities,
             )
         except Exception as error:
             execution_ms = int((time.monotonic() - started_at) * 1000)
@@ -81,13 +99,32 @@ def _validate_actions(installation: dict, actions: list[dict]) -> bool:
     Returns:
         True 表示全部通過驗證
     """
-    granted_capabilities = set(installation["granted_capabilities_json"])  # 待補：實際 JSON 解析
+    granted_capabilities = set(json.loads(installation["granted_capabilities_json"]))
     for action in actions:
         action_type = action.get("type")
         required_capability = CAPABILITY_OWNERS.get(action_type)
         if required_capability is None or required_capability not in granted_capabilities:
             return False
     return True
+
+
+def _installation_handles_event(installation: dict, event_type: str) -> bool:
+    """
+    檢查安裝紀錄對應的 manifest 是否訂閱指定事件。
+
+    Args:
+        installation: 安裝紀錄，需包含 manifest_json
+        event_type: 事件名稱
+
+    Returns:
+        True 表示該外掛訂閱此事件
+    """
+    try:
+        manifest_data = json.loads(installation["manifest_json"])
+    except (KeyError, json.JSONDecodeError) as error:
+        logger.error(f"解析外掛 manifest 失敗：{error}", exc_info=True)
+        return False
+    return event_type in manifest_data.get("event_hooks", [])
 
 
 async def _execute_actions(guild_id: int, actions: list[dict]) -> None:

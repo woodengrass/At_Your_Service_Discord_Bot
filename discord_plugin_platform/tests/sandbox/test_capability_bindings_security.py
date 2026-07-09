@@ -20,6 +20,7 @@ DANGEROUS_ATTRIBUTES = [
     "__func__",
     "__code__",
     "__dict__",
+    "__closure__",
 ]
 
 

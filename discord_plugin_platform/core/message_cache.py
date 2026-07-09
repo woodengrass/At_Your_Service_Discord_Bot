@@ -1,12 +1,14 @@
+import heapq
 import time
-from collections import deque
+from collections import OrderedDict
 
 MAX_MESSAGES_PER_CHANNEL = 500
 MESSAGE_TTL_SECONDS = 24 * 60 * 60
 MAX_TOTAL_CACHE_ENTRIES = 200_000  # 全域硬上限，對應設計文件第 4 節的安全網
 
-_channel_messages: dict[int, deque] = {}
+_channel_messages: dict[int, OrderedDict[int, dict]] = {}
 _channel_guild_map: dict[int, int] = {}
+_global_heap: list[tuple[float, int, int]] = []
 _total_entries = 0
 
 
@@ -35,16 +37,22 @@ def cache_message(guild_id: int, channel_id: int, message_id: int, author_id: in
         content: 訊息內容
     """
     global _total_entries
-    if _total_entries >= MAX_TOTAL_CACHE_ENTRIES:
-        return  # 全域硬上限已滿，暫停快取新訊息，等既有項目自然淘汰
-
     _channel_guild_map[channel_id] = guild_id
-    channel_queue = _channel_messages.setdefault(channel_id, deque())
-    channel_queue.append(
-        {"message_id": message_id, "author_id": author_id, "content": content, "cached_at": time.time()}
-    )
-    _total_entries += 1
+    channel_messages = _channel_messages.setdefault(channel_id, OrderedDict())
+    already_cached = message_id in channel_messages
+    channel_messages.pop(message_id, None)
+    cached_at = time.time()
+    channel_messages[message_id] = {
+        "message_id": message_id,
+        "author_id": author_id,
+        "content": content,
+        "cached_at": cached_at,
+    }
+    heapq.heappush(_global_heap, (cached_at, channel_id, message_id))
+    if not already_cached:
+        _total_entries += 1
     _evict_channel(channel_id)
+    _evict_global()
 
 
 def _evict_channel(channel_id: int) -> None:
@@ -55,16 +63,59 @@ def _evict_channel(channel_id: int) -> None:
         channel_id: 頻道 ID
     """
     global _total_entries
-    channel_queue = _channel_messages.get(channel_id)
-    if channel_queue is None:
+    channel_messages = _channel_messages.get(channel_id)
+    if channel_messages is None:
         return
     now = time.time()
-    while channel_queue and (
-        len(channel_queue) > MAX_MESSAGES_PER_CHANNEL
-        or now - channel_queue[0]["cached_at"] > MESSAGE_TTL_SECONDS
+    while channel_messages and (
+        len(channel_messages) > MAX_MESSAGES_PER_CHANNEL
+        or now - next(iter(channel_messages.values()))["cached_at"] > MESSAGE_TTL_SECONDS
     ):
-        channel_queue.popleft()
+        channel_messages.popitem(last=False)
         _total_entries -= 1
+    _remove_channel_if_empty(channel_id)
+
+
+def _evict_global() -> None:
+    """
+    套用全域上限，超過時淘汰最舊的快取項目。
+    """
+    global _total_entries
+    while _total_entries > MAX_TOTAL_CACHE_ENTRIES:
+        if not _global_heap:
+            _total_entries = 0
+            return
+        cached_at, channel_id, message_id = heapq.heappop(_global_heap)
+        channel_messages = _channel_messages.get(channel_id)
+        if channel_messages is None:
+            continue
+        cached_message = channel_messages.get(message_id)
+        if cached_message is None or cached_message["cached_at"] != cached_at:
+            continue
+        channel_messages.pop(message_id)
+        _total_entries -= 1
+        _remove_channel_if_empty(channel_id)
+
+
+def _remove_channel_if_empty(channel_id: int) -> None:
+    """
+    指定頻道沒有任何快取訊息時移除索引資料。
+
+    Args:
+        channel_id: 頻道 ID
+    """
+    channel_messages = _channel_messages.get(channel_id)
+    if channel_messages is not None and not channel_messages:
+        _channel_messages.pop(channel_id, None)
+        _channel_guild_map.pop(channel_id, None)
+
+
+def prune_expired() -> None:
+    """
+    主動清除所有頻道中已超過 TTL 的訊息，供背景任務週期性呼叫。
+    """
+    for channel_id in list(_channel_messages.keys()):
+        _evict_channel(channel_id)
 
 
 def get_cached_message(channel_id: int, message_id: int) -> dict | None:
@@ -78,13 +129,28 @@ def get_cached_message(channel_id: int, message_id: int) -> dict | None:
     Returns:
         dict，包含 author_id、content；找不到則回傳 None
     """
-    channel_queue = _channel_messages.get(channel_id)
-    if channel_queue is None:
+    channel_messages = _channel_messages.get(channel_id)
+    if channel_messages is None:
         return None
-    for entry in channel_queue:
-        if entry["message_id"] == message_id:
-            return entry
-    return None
+    return channel_messages.get(message_id)
+
+
+def remove_message(channel_id: int, message_id: int) -> None:
+    """
+    從快取中移除指定訊息，用於 raw delete 事件後清理。
+
+    Args:
+        channel_id: 頻道 ID
+        message_id: 訊息 ID
+    """
+    global _total_entries
+    channel_messages = _channel_messages.get(channel_id)
+    if channel_messages is None:
+        return
+    removed_message = channel_messages.pop(message_id, None)
+    if removed_message is not None:
+        _total_entries -= 1
+    _remove_channel_if_empty(channel_id)
 
 
 def purge_guild(guild_id: int) -> None:
@@ -99,7 +165,7 @@ def purge_guild(guild_id: int) -> None:
         channel_id for channel_id, mapped_guild_id in _channel_guild_map.items() if mapped_guild_id == guild_id
     ]
     for channel_id in channels_to_remove:
-        channel_queue = _channel_messages.pop(channel_id, None)
-        if channel_queue:
-            _total_entries -= len(channel_queue)
+        channel_messages = _channel_messages.pop(channel_id, None)
+        if channel_messages:
+            _total_entries -= len(channel_messages)
         _channel_guild_map.pop(channel_id, None)

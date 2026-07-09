@@ -12,6 +12,34 @@ _execution_timestamps: dict[tuple[int, str], deque] = {}
 _action_timestamps: dict[tuple[int, str], deque] = {}
 
 
+def clear_usage(guild_id: int, plugin_id: str) -> None:
+    """
+    清除指定安裝的配額使用紀錄，解除安裝時呼叫，避免殘留 key 長期累積。
+
+    Args:
+        guild_id: 伺服器 ID
+        plugin_id: 外掛 ID
+    """
+    key = (guild_id, plugin_id)
+    _execution_timestamps.pop(key, None)
+    _action_timestamps.pop(key, None)
+
+
+def clear_guild_usage(guild_id: int) -> None:
+    """
+    清除指定伺服器所有外掛的配額使用紀錄。
+
+    Args:
+        guild_id: 伺服器 ID
+    """
+    for key in list(_execution_timestamps.keys()):
+        if key[0] == guild_id:
+            _execution_timestamps.pop(key, None)
+    for key in list(_action_timestamps.keys()):
+        if key[0] == guild_id:
+            _action_timestamps.pop(key, None)
+
+
 def _prune_window(timestamps: deque, now: float) -> None:
     """
     移除超過配額時間窗的舊時間戳記。

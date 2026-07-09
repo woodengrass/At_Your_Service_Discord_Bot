@@ -1,4 +1,4 @@
-import asyncio
+import time
 
 import aiosqlite
 import pytest
@@ -7,6 +7,16 @@ from core import bot_registry, database, plugin_storage_repository
 from sandbox import worker
 from sandbox.engine import SandboxExecutionError
 from sandbox.worker import execute_plugin_event
+
+
+def _hanging_child_process_main(*args: object) -> None:
+    """
+    測試用子行程進入點：模擬沙箱卡死且完全不送 done 訊息。
+
+    Args:
+        args: worker 傳給子行程進入點的原始參數，本測試不需要使用
+    """
+    time.sleep(30)
 
 
 class _FakeRole:
@@ -138,33 +148,29 @@ async def test_process_worker_storage_uses_parent_execution_db(
 
 async def test_process_worker_timeout_terminates_child(monkeypatch, fake_bot: _FakeBot) -> None:
     """
-    主行程等待結果逾時時，應呼叫終止流程，而不是只放棄等待。
+    主行程等待真子行程結果逾時時，應終止並回收該子行程，而不是只放棄等待。
     """
-    terminate_called = False
+    captured_processes = []
+    original_terminate_process = worker._terminate_process
 
-    async def fake_serve_capability_requests(connection, backend):
-        await asyncio.sleep(1)
-        return {"kind": "done", "action_queue": []}
-
-    async def fake_terminate_process(process) -> None:
-        nonlocal terminate_called
-        terminate_called = True
-        if process.is_alive():
-            process.terminate()
-        await worker._join_process(process)
+    async def capture_terminate_process(process) -> None:
+        captured_processes.append(process)
+        await original_terminate_process(process)
 
     monkeypatch.setattr(worker, "EXECUTION_TIMEOUT_SECONDS", 0.05)
-    monkeypatch.setattr(worker, "serve_capability_requests", fake_serve_capability_requests)
-    monkeypatch.setattr(worker, "_terminate_process", fake_terminate_process)
+    monkeypatch.setattr(worker, "_child_process_main", _hanging_child_process_main)
+    monkeypatch.setattr(worker, "_terminate_process", capture_terminate_process)
 
     with pytest.raises(SandboxExecutionError, match="逾時"):
         await execute_plugin_event(
             guild_id=1,
             plugin_id="test_plugin",
-            source_code="function on_message(payload) api.get_member(42) end",
+            source_code="function on_message(payload) end",
             event_type="on_message",
             event_payload={},
             granted_capabilities=set(),
         )
 
-    assert terminate_called is True
+    assert len(captured_processes) == 1
+    assert captured_processes[0].is_alive() is False
+    assert captured_processes[0].exitcode is not None

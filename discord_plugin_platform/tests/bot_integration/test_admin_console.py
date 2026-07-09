@@ -375,3 +375,52 @@ async def test_uninstall_purges_message_cache_when_no_subscription_remains(monke
     assert purged_guild_ids == [1111]
     assert cleared_quota == [(1111, "temp_role_punishment")]
     assert "已移除外掛安裝" in capsys.readouterr().out
+
+
+async def test_stats_prints_outcome_breakdown_and_timing(monkeypatch, capsys) -> None:
+    """
+    stats 指令應印出總筆數、各 outcome 比例與平均/p95 耗時，見 design.md 附錄 A.6.2。
+    """
+    captured_args: dict = {}
+
+    async def fake_get_execution_stats(plugin_id: str, guild_id=None, since=None) -> dict:
+        captured_args["plugin_id"] = plugin_id
+        captured_args["guild_id"] = guild_id
+        captured_args["since"] = since
+        return {
+            "total": 4,
+            "outcome_counts": {"success": 3, "crashed": 1},
+            "avg_execution_ms": 42.5,
+            "p95_execution_ms": 99,
+        }
+
+    monkeypatch.setattr(admin_console.repository, "get_execution_stats", fake_get_execution_stats)
+
+    await admin_console.handle_command(
+        "admin plugin stats temp_role_punishment guild=1111 since=2025-01-01T00:00:00"
+    )
+
+    assert captured_args == {"plugin_id": "temp_role_punishment", "guild_id": 1111, "since": "2025-01-01T00:00:00"}
+    output = capsys.readouterr().out
+    assert "總執行次數=4" in output
+    assert "success" in output and "75.0%" in output
+    assert "crashed" in output and "25.0%" in output
+    assert "平均耗時=42.5ms" in output
+    assert "p95 耗時=99ms" in output
+
+
+async def test_stats_reports_no_records_when_empty(monkeypatch, capsys) -> None:
+    async def fake_get_execution_stats(plugin_id: str, guild_id=None, since=None) -> dict:
+        return {"total": 0, "outcome_counts": {}, "avg_execution_ms": None, "p95_execution_ms": None}
+
+    monkeypatch.setattr(admin_console.repository, "get_execution_stats", fake_get_execution_stats)
+
+    await admin_console.handle_command("admin plugin stats temp_role_punishment")
+
+    assert "沒有任何執行紀錄" in capsys.readouterr().out
+
+
+async def test_stats_rejects_unknown_argument(monkeypatch, capsys) -> None:
+    await admin_console.handle_command("admin plugin stats temp_role_punishment bogus=1")
+
+    assert "指令執行失敗" in capsys.readouterr().out

@@ -726,3 +726,59 @@ async def log_execution(
         (guild_id, plugin_id, event_type, actions_json, execution_ms, outcome, error, _now_iso()),
     )
     await db.commit()
+
+
+async def get_execution_stats(
+    plugin_id: str, guild_id: int | None = None, since: str | None = None
+) -> dict:
+    """
+    彙總 plugin_execution_log，回答「這個外掛穩不穩、慢不慢」，見 design.md 附錄 A.6.2
+    觀測性規劃第一步：不用新依賴，直接對既有稽核紀錄做 GROUP BY。
+
+    Args:
+        plugin_id: 外掛 ID
+        guild_id: 只統計指定伺服器；None 表示統計所有伺服器
+        since: 只統計這個 ISO 時間之後（含）的紀錄；None 表示統計全部歷史
+
+    Returns:
+        {"total": 總筆數,
+         "outcome_counts": {outcome: 筆數, ...},
+         "avg_execution_ms": 平均耗時或 None（沒有紀錄時）,
+         "p95_execution_ms": p95 耗時或 None（沒有紀錄時）}
+    """
+    db = get_db()
+    where_clauses = ["plugin_id = ?"]
+    params: list = [plugin_id]
+    if guild_id is not None:
+        where_clauses.append("guild_id = ?")
+        params.append(guild_id)
+    if since is not None:
+        where_clauses.append("created_at >= ?")
+        params.append(since)
+    where_sql = " AND ".join(where_clauses)
+
+    async with db.execute(
+        f"SELECT outcome, execution_ms FROM plugin_execution_log WHERE {where_sql} ORDER BY execution_ms",
+        params,
+    ) as cursor:
+        rows = await cursor.fetchall()
+
+    total = len(rows)
+    outcome_counts: dict[str, int] = {}
+    for outcome, _ in rows:
+        outcome_counts[outcome] = outcome_counts.get(outcome, 0) + 1
+
+    if total == 0:
+        return {"total": 0, "outcome_counts": {}, "avg_execution_ms": None, "p95_execution_ms": None}
+
+    execution_times = [row[1] for row in rows]
+    avg_execution_ms = sum(execution_times) / total
+    p95_index = min(total - 1, int(total * 0.95))
+    p95_execution_ms = execution_times[p95_index]
+
+    return {
+        "total": total,
+        "outcome_counts": outcome_counts,
+        "avg_execution_ms": avg_execution_ms,
+        "p95_execution_ms": p95_execution_ms,
+    }

@@ -26,6 +26,10 @@ COMMAND_HELP: tuple[tuple[str, str], ...] = (
     ("admin plugin suspend <plugin_id>", "停權指定外掛（跨所有安裝）"),
     ("admin plugin unsuspend <plugin_id>", "解除指定外掛停權"),
     ("admin plugin quota set <guild_id> <plugin_id> execution=<次數> action=<次數>", "調整指定安裝的動態配額"),
+    (
+        "admin plugin stats <plugin_id> [guild=<guild_id>] [since=<ISO時間>]",
+        "彙總外掛執行紀錄：成功率、各結果比例、平均/p95 耗時",
+    ),
 )
 HELP_TEXT = "[外掛平台管理工具] 可用指令（直接在終端機輸入後按 Enter）：\n" + "\n".join(
     f"  {usage:<68} {description}" for usage, description in COMMAND_HELP
@@ -258,6 +262,59 @@ async def _handle_quota_command(parts: list[str]) -> None:
     print("已更新外掛安裝配額。" if updated else f"找不到安裝紀錄：{guild_id}/{plugin_id}")
 
 
+def _parse_stats_arguments(arguments: list[str]) -> tuple[int | None, str | None]:
+    """
+    解析 stats 指令的可選 guild=／since= 參數。
+
+    Args:
+        arguments: 指令中 plugin_id 之後的 key=value 參數
+
+    Returns:
+        (guild_id 或 None, since ISO 時間字串或 None)
+
+    Raises:
+        ValueError: 參數格式錯誤或有未知的參數名稱
+    """
+    guild_id: int | None = None
+    since: str | None = None
+    for argument in arguments:
+        if "=" not in argument:
+            raise ValueError(f"參數格式錯誤：{argument}")
+        name, value = argument.split("=", 1)
+        if name == "guild":
+            guild_id = _parse_guild_id(value)
+        elif name == "since":
+            since = value
+        else:
+            raise ValueError(f"未知的參數：{name}")
+    return guild_id, since
+
+
+async def _handle_stats_command(parts: list[str]) -> None:
+    """
+    彙總指定外掛的執行紀錄並印出，見 design.md 附錄 A.6.2。
+
+    Args:
+        parts: shlex 解析後的完整指令片段
+    """
+    if len(parts) < 4:
+        print(HELP_TEXT)
+        return
+    plugin_id = _validate_plugin_id(parts[3])
+    guild_id, since = _parse_stats_arguments(parts[4:])
+    stats = await repository.get_execution_stats(plugin_id, guild_id=guild_id, since=since)
+
+    if stats["total"] == 0:
+        print(f"{plugin_id} 沒有任何執行紀錄。")
+        return
+
+    print(f"{plugin_id} | 總執行次數={stats['total']}")
+    for outcome, count in sorted(stats["outcome_counts"].items()):
+        percentage = count / stats["total"] * 100
+        print(f"  {outcome:<24} {count:>6} 次（{percentage:.1f}%）")
+    print(f"  平均耗時={stats['avg_execution_ms']:.1f}ms | p95 耗時={stats['p95_execution_ms']}ms")
+
+
 async def handle_command(line: str) -> None:
     """
     解析單行終端機指令。
@@ -314,6 +371,8 @@ async def handle_command(line: str) -> None:
                 print(f"找不到外掛：{plugin_id}")
         elif command == "quota":
             await _handle_quota_command(parts)
+        elif command == "stats":
+            await _handle_stats_command(parts)
         else:
             print(HELP_TEXT)
     except (ManifestValidationError, ValueError) as error:

@@ -459,3 +459,46 @@ async def test_guild_has_event_subscription_ignores_suspended_plugins(
     await repository.suspend_plugin("message_logger")
 
     assert await repository.guild_has_event_subscription(1111, {"on_message_edit"}) is False
+
+
+async def test_get_execution_stats_returns_empty_summary_when_no_logs(
+    plugin_database: aiosqlite.Connection,
+) -> None:
+    stats = await repository.get_execution_stats("nonexistent_plugin")
+
+    assert stats == {"total": 0, "outcome_counts": {}, "avg_execution_ms": None, "p95_execution_ms": None}
+
+
+async def test_get_execution_stats_aggregates_outcomes_and_timing(
+    plugin_database: aiosqlite.Connection,
+) -> None:
+    await repository.log_execution(1111, "temp_role_punishment", "on_message", "[]", 10, "success")
+    await repository.log_execution(1111, "temp_role_punishment", "on_message", "[]", 20, "success")
+    await repository.log_execution(1111, "temp_role_punishment", "on_message", "[]", 30, "crashed", "boom")
+    await repository.log_execution(2222, "temp_role_punishment", "on_message", "[]", 999, "success")
+
+    stats = await repository.get_execution_stats("temp_role_punishment", guild_id=1111)
+
+    assert stats["total"] == 3
+    assert stats["outcome_counts"] == {"success": 2, "crashed": 1}
+    assert stats["avg_execution_ms"] == pytest.approx(20.0)
+    assert stats["p95_execution_ms"] == 30
+
+
+async def test_get_execution_stats_filters_by_since(plugin_database: aiosqlite.Connection) -> None:
+    db = database.get_db()
+    await db.execute(
+        """
+        INSERT INTO plugin_execution_log
+            (guild_id, plugin_id, event_type, actions_json, execution_ms, outcome, error, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (1111, "temp_role_punishment", "on_message", "[]", 5, "success", None, "2020-01-01T00:00:00"),
+    )
+    await db.commit()
+    await repository.log_execution(1111, "temp_role_punishment", "on_message", "[]", 50, "success")
+
+    stats = await repository.get_execution_stats("temp_role_punishment", since="2025-01-01T00:00:00")
+
+    assert stats["total"] == 1
+    assert stats["avg_execution_ms"] == pytest.approx(50.0)

@@ -49,3 +49,29 @@ def test_slash_command_hook_without_commands_raises():
     manifest = {**VALID_MANIFEST, "slash_commands": []}
     with pytest.raises(ManifestValidationError):
         parse_manifest(json.dumps(manifest))
+
+
+def test_slash_command_name_must_match_discord_limits():
+    manifest = {**VALID_MANIFEST, "slash_commands": [{"name": "Bad Name", "description": "有效描述"}]}
+    with pytest.raises(ManifestValidationError, match="slash command name"):
+        parse_manifest(json.dumps(manifest))
+
+
+def test_slash_command_description_has_length_limit():
+    manifest = {**VALID_MANIFEST, "slash_commands": [{"name": "valid_name", "description": "x" * 101}]}
+    with pytest.raises(ManifestValidationError, match="description"):
+        parse_manifest(json.dumps(manifest))
+
+
+@pytest.mark.parametrize("missing_field", ["name", "version", "description"])
+def test_missing_top_level_field_raises_manifest_validation_error_not_key_error(missing_field):
+    manifest = {key: value for key, value in VALID_MANIFEST.items() if key != missing_field}
+    with pytest.raises(ManifestValidationError, match=missing_field):
+        parse_manifest(json.dumps(manifest))
+
+
+@pytest.mark.parametrize("empty_value", ["", 123, None])
+def test_empty_or_wrong_type_top_level_field_raises(empty_value):
+    manifest = {**VALID_MANIFEST, "name": empty_value}
+    with pytest.raises(ManifestValidationError, match="name"):
+        parse_manifest(json.dumps(manifest))

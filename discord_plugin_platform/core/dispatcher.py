@@ -124,44 +124,61 @@ async def dispatch_event(
         granted_capabilities = set(json.loads(installation["granted_capabilities_json"]))
         needs_storage_transaction = bool(granted_capabilities & _STORAGE_CAPABILITY_NAMES)
         started_at = time.monotonic()
+        execution_db = None
 
-        execution_db = await _open_execution_db() if needs_storage_transaction else None
         try:
+            execution_db = await _open_execution_db() if needs_storage_transaction else None
             try:
-                actions = await execute_plugin_event(
-                    guild_id=guild_id,
-                    plugin_id=plugin_id,
-                    source_code=source_code,
-                    event_type=event_type,
-                    event_payload=event_payload,
-                    granted_capabilities=granted_capabilities,
-                    execution_db=execution_db,
-                )
-            except Exception as error:
+                try:
+                    actions = await execute_plugin_event(
+                        guild_id=guild_id,
+                        plugin_id=plugin_id,
+                        source_code=source_code,
+                        event_type=event_type,
+                        event_payload=event_payload,
+                        granted_capabilities=granted_capabilities,
+                        execution_db=execution_db,
+                    )
+                except Exception as error:
+                    execution_ms = int((time.monotonic() - started_at) * 1000)
+                    logger.error(f"外掛執行失敗（plugin_id={plugin_id}）：{error}", exc_info=True)
+                    if execution_db is not None:
+                        await execution_db.rollback()
+                    await repository.log_execution(
+                        guild_id, plugin_id, event_type, "[]", execution_ms, "crashed", str(error)
+                    )
+                    continue
+
                 execution_ms = int((time.monotonic() - started_at) * 1000)
-                logger.error(f"外掛執行失敗（plugin_id={plugin_id}）：{error}", exc_info=True)
-                if execution_db is not None:
-                    await execution_db.rollback()
-                await repository.log_execution(
-                    guild_id, plugin_id, event_type, "[]", execution_ms, "crashed", str(error)
-                )
-                continue
 
+                if not _validate_actions(installation, actions):
+                    if execution_db is not None:
+                        await execution_db.rollback()
+                    await repository.log_execution(
+                        guild_id, plugin_id, event_type, "[]", execution_ms, "rejected_invalid_action"
+                    )
+                    continue
+
+                if execution_db is not None:
+                    await execution_db.commit()
+            finally:
+                if execution_db is not None:
+                    await execution_db.close()
+        except Exception as error:
+            # 這裡攔到的是專用連線本身的基礎設施問題（_open_execution_db() 連線失敗、
+            # 或 commit()/rollback()/close() 在連線中途真正壞掉時失敗），不是外掛執行
+            # 或動作驗證的例外（那兩種已經在上面內層處理掉）。這類例外原本完全沒有
+            # 保護，會直接炸穿 dispatch_event()，導致 for 迴圈裡這次分派後面所有其他
+            # 安裝都不會被處理——跟 design.md 第 5.4.2 節「crashed 應該回退且被記錄」
+            # 的既定行為不一致，也跟第 12.3 節第 5 點修好的 _execute_actions() 例外
+            # 保護是同一種基礎設施層級的坑，這裡比照同樣的處理方式：記錄 crashed 並
+            # continue 到下一個安裝，不讓它擴大成影響整批分派的問題。
             execution_ms = int((time.monotonic() - started_at) * 1000)
-
-            if not _validate_actions(installation, actions):
-                if execution_db is not None:
-                    await execution_db.rollback()
-                await repository.log_execution(
-                    guild_id, plugin_id, event_type, "[]", execution_ms, "rejected_invalid_action"
-                )
-                continue
-
-            if execution_db is not None:
-                await execution_db.commit()
-        finally:
-            if execution_db is not None:
-                await execution_db.close()
+            logger.error(f"執行專用資料庫連線發生錯誤（plugin_id={plugin_id}）：{error}", exc_info=True)
+            await repository.log_execution(
+                guild_id, plugin_id, event_type, "[]", execution_ms, "crashed", str(error)
+            )
+            continue
 
         if actions and not await quota.check_and_consume_action_quota(guild_id, plugin_id, len(actions)):
             await repository.log_execution(guild_id, plugin_id, event_type, "[]", execution_ms, "quota_exceeded")

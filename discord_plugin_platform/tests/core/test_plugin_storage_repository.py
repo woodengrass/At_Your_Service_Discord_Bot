@@ -92,6 +92,24 @@ async def test_storage_get_leaderboard_rejects_invalid_limit(temp_db):
         )
 
 
+async def test_storage_get_leaderboard_sorts_and_limits_in_database(temp_db):
+    """
+    leaderboard 查詢應只取數字值並依資料庫排序/limit，不把整個 keyspace 拉回 Python 排序。
+    """
+    await plugin_storage_repository.storage_set(1, "plugin_a", "score:alice", 10)
+    await plugin_storage_repository.storage_set(1, "plugin_a", "score:bob", 30)
+    await plugin_storage_repository.storage_set(1, "plugin_a", "score:carol", 20)
+    await plugin_storage_repository.storage_set(1, "plugin_a", "score:flag", True)
+    await plugin_storage_repository.storage_set(1, "plugin_a", "score:text", "100")
+
+    leaderboard = await plugin_storage_repository.storage_get_leaderboard(1, "plugin_a", "score:", 2)
+
+    assert leaderboard == [
+        {"key": "score:bob", "value": 30},
+        {"key": "score:carol", "value": 20},
+    ]
+
+
 async def test_create_scheduled_task_rejects_invalid_inputs(temp_db):
     with pytest.raises(ScheduledTaskLimitExceededError, match="delay_seconds"):
         await plugin_storage_repository.create_scheduled_task(1, "plugin_a", 0, "task", {})

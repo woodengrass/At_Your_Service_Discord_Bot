@@ -7,7 +7,7 @@ import asyncio
 
 import pytest
 
-from core.capability_api import ExecutionContext
+from core.capability_api import ExecutionContext, InProcessBackend
 from sandbox.capability_bindings import bind_capabilities
 from sandbox.engine import SandboxExecutionError, create_sandbox_runtime, execute_untrusted_code
 
@@ -42,12 +42,17 @@ class _FakeBot:
 
 
 def _make_context(granted_capabilities=frozenset()):
+    backend = InProcessBackend(
+        guild_id=1,
+        plugin_id="test_plugin",
+        bot=_FakeBot(),
+        event_loop=asyncio.new_event_loop(),
+    )
     return ExecutionContext(
         guild_id=1,
         plugin_id="test_plugin",
         granted_capabilities=set(granted_capabilities),
-        bot=_FakeBot(),
-        event_loop=asyncio.new_event_loop(),
+        backend=backend,
     )
 
 

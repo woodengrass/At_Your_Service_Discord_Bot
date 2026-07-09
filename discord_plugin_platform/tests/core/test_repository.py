@@ -174,6 +174,26 @@ async def test_create_and_delete_installation(plugin_database: aiosqlite.Connect
     assert await repository.get_installation(1111, "temp_role_punishment") is None
 
 
+async def test_reinstall_keeps_original_installed_at(plugin_database: aiosqlite.Connection, monkeypatch) -> None:
+    """
+    重新安裝同一外掛時不應覆蓋第一次安裝時間，避免安裝年資與審計資料失真。
+    """
+    timestamps = iter(["2026-01-01T00:00:00+00:00", "2026-01-02T00:00:00+00:00"])
+    monkeypatch.setattr(repository, "_now_iso", lambda: next(timestamps))
+
+    await repository.create_installation(1111, "temp_role_punishment", "1.0.0", ["storage"])
+    await repository.create_installation(1111, "temp_role_punishment", "1.1.0", ["storage", "schedule_task"])
+
+    async with plugin_database.execute(
+        "SELECT installed_version, granted_capabilities_json, installed_at FROM plugin_installations"
+    ) as cursor:
+        row = await cursor.fetchone()
+
+    assert row[0] == "1.1.0"
+    assert json.loads(row[1]) == ["storage", "schedule_task"]
+    assert row[2] == "2026-01-01T00:00:00+00:00"
+
+
 async def test_delete_installation_also_deletes_its_scheduled_tasks(plugin_database: aiosqlite.Connection) -> None:
     """
     刪除安裝時要一併清掉這個安裝底下所有排程任務，否則排程消費迴圈每分鐘都會
@@ -286,6 +306,16 @@ async def test_get_due_scheduled_tasks(plugin_database: aiosqlite.Connection) ->
     ]
 
 
+async def test_scheduled_tasks_have_run_at_plugin_index(plugin_database: aiosqlite.Connection) -> None:
+    """
+    到期排程查詢會用 run_at + plugin_id 複合索引，避免任務量大時 JOIN 前掃描過多資料。
+    """
+    async with plugin_database.execute("PRAGMA index_list(plugin_scheduled_tasks)") as cursor:
+        indexes = await cursor.fetchall()
+
+    assert "idx_scheduled_tasks_run_at_plugin" in {row[1] for row in indexes}
+
+
 async def test_delete_scheduled_task(plugin_database: aiosqlite.Connection) -> None:
     await plugin_database.execute(
         """
@@ -375,6 +405,30 @@ async def test_guild_has_event_subscription(plugin_database: aiosqlite.Connectio
 
     assert await repository.guild_has_event_subscription(1111, {"on_message_edit"}) is True
     assert await repository.guild_has_event_subscription(1111, {"on_voice_state_update"}) is False
+
+
+async def test_guild_event_subscription_cache_is_invalidated_on_installation_change(
+    plugin_database: aiosqlite.Connection,
+) -> None:
+    """
+    事件訂閱查詢有短期快取，但安裝變更後必須立即失效，避免 on_message 快取判斷吃到舊結果。
+    """
+    manifest_json = json.dumps({"event_hooks": ["on_message_edit"]})
+    await repository.submit_plugin_version(
+        plugin_id="message_logger",
+        author_id=1234,
+        name="message_logger",
+        version="1.0.0",
+        manifest_json=manifest_json,
+        source_code="function on_message_edit(payload) end",
+        capability_api_version=1,
+    )
+
+    assert await repository.guild_has_event_subscription(1111, {"on_message_edit"}) is False
+
+    await repository.create_installation(1111, "message_logger", "1.0.0", ["storage"])
+
+    assert await repository.guild_has_event_subscription(1111, {"on_message_edit"}) is True
 
 
 async def test_guild_has_event_subscription_ignores_suspended_plugins(

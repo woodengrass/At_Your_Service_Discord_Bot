@@ -1,5 +1,5 @@
 """
-core/capability_api.py 的 ExecutionContext.run_coroutine_sync() 測試：
+core/capability_api.py 的 InProcessBackend.run_coroutine_sync() 測試：
 驗證跨執行緒呼叫逾時時，會嘗試取消還在主 event loop 上跑的 coroutine，
 不會留著孤兒 coroutine 繼續執行（可能對著已經被 dispatcher rollback／關閉的
 execution_db 連線寫東西，見 design.md 第 5.4.2 節、第 12.3 節）。
@@ -11,7 +11,7 @@ import threading
 import pytest
 
 import core.capability_api as capability_api_module
-from core.capability_api import ExecutionContext
+from core.capability_api import InProcessBackend
 
 
 def _run_loop_in_background_thread() -> tuple[asyncio.AbstractEventLoop, threading.Thread]:
@@ -35,16 +35,15 @@ def test_run_coroutine_sync_cancels_orphaned_coroutine_on_timeout(monkeypatch):
             except asyncio.CancelledError:
                 raise
 
-        context = ExecutionContext(
+        backend = InProcessBackend(
             guild_id=1,
             plugin_id="test_plugin",
-            granted_capabilities=set(),
             bot=None,
             event_loop=loop,
         )
 
         with pytest.raises(TimeoutError):
-            context.run_coroutine_sync(slow_coroutine())
+            backend.run_coroutine_sync(slow_coroutine())
 
         # 取消是合作式的，給主 loop 一點時間真正把 coroutine 停掉。
         cancel_confirmed = threading.Event()

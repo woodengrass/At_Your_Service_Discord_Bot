@@ -168,7 +168,7 @@ async def dispatch_event(
             continue
 
         try:
-            await _execute_actions(guild_id, actions)
+            action_errors = await _execute_actions(guild_id, actions)
         except Exception as error:
             # _execute_actions() 本身已經把每個動作的例外個別接住記錄，不會往外拋；
             # 這裡攔到的是更底層的基礎設施問題（最明確的例子是 bot_registry.get_bot()
@@ -182,7 +182,13 @@ async def dispatch_event(
             continue
 
         await repository.log_execution(
-            guild_id, plugin_id, event_type, json.dumps(actions, ensure_ascii=False), execution_ms, "success"
+            guild_id,
+            plugin_id,
+            event_type,
+            json.dumps(actions, ensure_ascii=False),
+            execution_ms,
+            "success",
+            json.dumps({"action_errors": action_errors}, ensure_ascii=False) if action_errors else None,
         )
         has_successful_execution = True
 
@@ -312,7 +318,7 @@ def _installation_handles_event(installation: dict, event_type: str) -> bool:
     return event_type in manifest_data.get("event_hooks", [])
 
 
-async def _execute_actions(guild_id: int, actions: list[dict]) -> None:
+async def _execute_actions(guild_id: int, actions: list[dict]) -> list[dict]:
     """
     依序真正執行動作清單裡的每個動作，呼叫真正的 Discord API。
 
@@ -322,22 +328,29 @@ async def _execute_actions(guild_id: int, actions: list[dict]) -> None:
     Args:
         guild_id: 伺服器 ID
         actions: 已通過驗證的動作清單
+
+    Returns:
+        action-level 錯誤摘要清單；空清單代表全部動作都沒有拋出例外
     """
     bot = bot_registry.get_bot()
     guild = bot.get_guild(guild_id)
+    action_errors = []
     if guild is None:
         logger.error(f"執行動作時找不到伺服器（guild_id={guild_id}），機器人可能已被移出")
-        return
+        return [{"index": None, "type": None, "error": "找不到伺服器"}]
 
-    for action in actions:
+    for index, action in enumerate(actions):
         handler = _ACTION_HANDLERS.get(action["type"])
         if handler is None:
             logger.error(f"未知的動作類型，略過（guild_id={guild_id}，action={action}）")
+            action_errors.append({"index": index, "type": action["type"], "error": "未知的動作類型"})
             continue
         try:
             await handler(guild, action["params"])
         except Exception as error:
             logger.error(f"執行動作失敗（guild_id={guild_id}，action={action}）：{error}", exc_info=True)
+            action_errors.append({"index": index, "type": action["type"], "error": str(error)})
+    return action_errors
 
 
 def _build_embed(embed_params: dict | None) -> discord.Embed | None:

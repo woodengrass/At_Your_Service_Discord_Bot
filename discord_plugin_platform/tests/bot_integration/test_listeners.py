@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 from types import SimpleNamespace
@@ -196,6 +197,7 @@ async def test_raw_message_edit_and_delete_use_message_cache(monkeypatch) -> Non
     assert captured_events[0][1] == "on_message_edit"
     assert captured_events[0][2]["old_content"] == "old content"
     assert captured_events[0][2]["new_content"] == "new content"
+    assert captured_events[0][2]["edited_at"] == "2026-01-01T00:00:00+00:00"
     assert captured_events[1][1] == "on_message_delete"
     assert captured_events[1][2]["content"] == "new content"
     assert message_cache.get_cached_message(4444, 3333) is None
@@ -213,12 +215,18 @@ async def test_on_guild_remove_purges_message_cache(monkeypatch) -> None:
     async def fake_delete_all_storage_for_guild(guild_id: int) -> None:
         return None
 
+    cleared_guild_ids: list[int] = []
+
+    def fake_clear_guild_usage(guild_id: int) -> None:
+        cleared_guild_ids.append(guild_id)
+
     monkeypatch.setattr(
         listeners.repository, "delete_all_installations_for_guild", fake_delete_all_installations_for_guild
     )
     monkeypatch.setattr(
         listeners.plugin_storage_repository, "delete_all_storage_for_guild", fake_delete_all_storage_for_guild
     )
+    monkeypatch.setattr(listeners.quota, "clear_guild_usage", fake_clear_guild_usage)
 
     cog = listeners.PluginPlatformListeners(FakeBot())
     message_cache.cache_message(1111, 4444, 3333, 2222, "content")
@@ -226,6 +234,7 @@ async def test_on_guild_remove_purges_message_cache(monkeypatch) -> None:
     await cog.on_guild_remove(SimpleNamespace(id=1111))
 
     assert message_cache.get_cached_message(4444, 3333) is None
+    assert cleared_guild_ids == [1111]
 
 
 async def test_on_guild_remove_deletes_installations_and_storage(tmp_path, monkeypatch) -> None:
@@ -443,3 +452,52 @@ async def test_consume_due_scheduled_tasks_deletes_task_without_hook(monkeypatch
 
     assert deleted_task_ids == ["orphan_task"]
     assert dispatch_called is False
+
+
+async def test_consume_due_scheduled_tasks_limits_concurrency(monkeypatch) -> None:
+    """
+    排程消費可併發處理，但同時執行數不得超過設定上限。
+    """
+    active_count = 0
+    max_active_count = 0
+
+    async def fake_get_due_scheduled_tasks(now_iso: str) -> list[dict]:
+        return [
+            {
+                "task_id": f"task_{index}",
+                "guild_id": 1111,
+                "plugin_id": "temp_role_punishment",
+                "run_at": "2026-01-01T00:00:00+00:00",
+                "payload_json": '{"task_name":"restore","payload":{}}',
+                "recurring_interval_seconds": None,
+                "manifest_json": '{"event_hooks":["on_scheduled_task"]}',
+            }
+            for index in range(5)
+        ]
+
+    async def fake_dispatch_event(
+        guild_id: int,
+        event_type: str,
+        event_payload: dict,
+        target_plugin_id: str | None = None,
+    ) -> bool:
+        nonlocal active_count, max_active_count
+        active_count += 1
+        max_active_count = max(max_active_count, active_count)
+        await asyncio.sleep(0)
+        active_count -= 1
+        return True
+
+    async def fake_delete_scheduled_task(task_id: str) -> None:
+        return None
+
+    monkeypatch.setattr(listeners, "MAX_SCHEDULED_TASK_DISPATCH_CONCURRENCY", 2)
+    monkeypatch.setattr(listeners.repository, "get_due_scheduled_tasks", fake_get_due_scheduled_tasks)
+    monkeypatch.setattr(listeners.repository, "delete_scheduled_task", fake_delete_scheduled_task)
+    monkeypatch.setattr(listeners, "dispatch_event", fake_dispatch_event)
+
+    cog = listeners.PluginPlatformListeners(FakeBot())
+
+    await cog.consume_due_scheduled_tasks()
+
+    assert max_active_count == 2

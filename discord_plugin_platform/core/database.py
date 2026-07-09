@@ -87,6 +87,12 @@ async def init_db() -> None:
     await _connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_run_at ON plugin_scheduled_tasks (run_at)"
     )
+    await _connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_run_at_plugin
+        ON plugin_scheduled_tasks (run_at, plugin_id)
+        """
+    )
 
     await _connection.execute(
         """

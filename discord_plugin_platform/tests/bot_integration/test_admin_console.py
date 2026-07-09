@@ -27,6 +27,60 @@ async def test_plugin_list_prints_plugins(monkeypatch, capsys) -> None:
     assert "status=approved" in output
 
 
+async def test_review_list_prints_pending_plugins(monkeypatch, capsys) -> None:
+    """
+    review list 指令應只列出待審核外掛，方便操作者查審核佇列。
+    """
+    captured_status = None
+
+    async def fake_list_plugins(status: str | None = None) -> list[dict]:
+        nonlocal captured_status
+        captured_status = status
+        return [
+            {
+                "plugin_id": "pending_plugin",
+                "name": "pending_plugin",
+                "latest_version": "1.0.0",
+                "status": "pending_review",
+            }
+        ]
+
+    monkeypatch.setattr(admin_console.repository, "list_plugins", fake_list_plugins)
+
+    await admin_console.handle_command("admin plugin review list")
+
+    output = capsys.readouterr().out
+    assert captured_status == "pending_review"
+    assert "pending_plugin" in output
+
+
+async def test_show_prints_plugin_details(monkeypatch, capsys) -> None:
+    """
+    show 指令應輸出單一外掛詳細資料與 manifest。
+    """
+
+    async def fake_get_plugin(plugin_id: str) -> dict | None:
+        return {
+            "plugin_id": plugin_id,
+            "author_id": 1234,
+            "name": "temp_role_punishment",
+            "latest_version": "1.0.0",
+            "status": "approved",
+        }
+
+    async def fake_get_plugin_manifest(plugin_id: str, version: str) -> str | None:
+        return '{"name":"temp_role_punishment"}'
+
+    monkeypatch.setattr(admin_console.repository, "get_plugin", fake_get_plugin)
+    monkeypatch.setattr(admin_console.repository, "get_plugin_manifest", fake_get_plugin_manifest)
+
+    await admin_console.handle_command("admin plugin show temp_role_punishment")
+
+    output = capsys.readouterr().out
+    assert "author=1234" in output
+    assert "manifest=" in output
+
+
 async def test_review_reject_keeps_quoted_reason(monkeypatch, capsys) -> None:
     """
     reject 指令必須用 shlex 保留含空白的退回原因。
@@ -272,11 +326,31 @@ async def test_quota_set_rejects_negative_value(monkeypatch, capsys) -> None:
     assert "配額不能是負數" in capsys.readouterr().out
 
 
+async def test_install_rejects_invalid_guild_id(monkeypatch, capsys) -> None:
+    """
+    guild_id 格式錯誤時應在進 repository 前回報友善訊息。
+    """
+    get_plugin_called = False
+
+    async def fake_get_plugin(plugin_id: str) -> dict | None:
+        nonlocal get_plugin_called
+        get_plugin_called = True
+        return None
+
+    monkeypatch.setattr(admin_console.repository, "get_plugin", fake_get_plugin)
+
+    await admin_console.handle_command("admin plugin install -1 temp_role_punishment")
+
+    assert get_plugin_called is False
+    assert "guild_id 必須是正整數" in capsys.readouterr().out
+
+
 async def test_uninstall_purges_message_cache_when_no_subscription_remains(monkeypatch, capsys) -> None:
     """
     uninstall 後若該伺服器不再有 edit/delete 訂閱，應立即清除 message cache。
     """
     purged_guild_ids: list[int] = []
+    cleared_quota: list[tuple[int, str]] = []
 
     async def fake_delete_installation(guild_id: int, plugin_id: str) -> bool:
         return True
@@ -288,11 +362,16 @@ async def test_uninstall_purges_message_cache_when_no_subscription_remains(monke
     def fake_purge_guild(guild_id: int) -> None:
         purged_guild_ids.append(guild_id)
 
+    def fake_clear_usage(guild_id: int, plugin_id: str) -> None:
+        cleared_quota.append((guild_id, plugin_id))
+
     monkeypatch.setattr(admin_console.repository, "delete_installation", fake_delete_installation)
     monkeypatch.setattr(admin_console.repository, "guild_has_event_subscription", fake_guild_has_event_subscription)
     monkeypatch.setattr(admin_console.message_cache, "purge_guild", fake_purge_guild)
+    monkeypatch.setattr(admin_console.quota, "clear_usage", fake_clear_usage)
 
     await admin_console.handle_command("admin plugin uninstall 1111 temp_role_punishment")
 
     assert purged_guild_ids == [1111]
+    assert cleared_quota == [(1111, "temp_role_punishment")]
     assert "已移除外掛安裝" in capsys.readouterr().out

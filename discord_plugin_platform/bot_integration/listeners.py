@@ -3,6 +3,7 @@
 第二階段開發重點（接上真正的 bot），見 design.md 第二階段。
 """
 
+import asyncio
 import datetime
 import json
 import logging
@@ -10,13 +11,14 @@ import logging
 import discord
 from discord.ext import commands, tasks
 
-from core import bot_registry, message_cache, plugin_storage_repository, repository, suspension
+from core import bot_registry, message_cache, plugin_storage_repository, quota, repository, suspension
 from core.database import get_db
 from core.dispatcher import dispatch_event
 
 logger = logging.getLogger(__name__)
 
 MESSAGE_CACHE_EVENTS = {"on_message_edit", "on_message_delete"}
+MAX_SCHEDULED_TASK_DISPATCH_CONCURRENCY = 10
 
 
 class PluginPlatformListeners(commands.Cog):
@@ -35,12 +37,12 @@ class PluginPlatformListeners(commands.Cog):
         await suspension.start_refresh_loop(get_db())
         self.scheduled_task_loop.start()
 
-    def cog_unload(self) -> None:
+    async def cog_unload(self) -> None:
         """
         卸載 Cog 時停止排程任務消費迴圈。
         """
         self.scheduled_task_loop.cancel()
-        suspension.stop_refresh_loop()
+        await suspension.stop_refresh_loop()
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -163,7 +165,7 @@ class PluginPlatformListeners(commands.Cog):
                 "author_id": cached_message["author_id"] if cached_message else None,
                 "old_content": cached_message["content"] if cached_message else None,
                 "new_content": payload.data.get("content"),
-                "edited_at": payload.data.get("edited_timestamp"),
+                "edited_at": _normalize_discord_timestamp(payload.data.get("edited_timestamp")),
             },
         )
         if cached_message and payload.data.get("content") is not None:
@@ -211,6 +213,7 @@ class PluginPlatformListeners(commands.Cog):
         """
         deleted_plugin_ids = await repository.delete_all_installations_for_guild(guild.id)
         await plugin_storage_repository.delete_all_storage_for_guild(guild.id)
+        quota.clear_guild_usage(guild.id)
         message_cache.purge_guild(guild.id)
         if deleted_plugin_ids:
             logger.info(f"伺服器 {guild.id} 已移除，清理外掛安裝：{deleted_plugin_ids}")
@@ -246,6 +249,7 @@ class PluginPlatformListeners(commands.Cog):
         每分鐘消費已到期的外掛排程任務，並轉發成 on_scheduled_task 事件。
         """
         await self.bot.wait_until_ready()
+        message_cache.prune_expired()
         await self.consume_due_scheduled_tasks()
 
     async def consume_due_scheduled_tasks(self) -> None:
@@ -254,12 +258,25 @@ class PluginPlatformListeners(commands.Cog):
         """
         now = datetime.datetime.now(datetime.timezone.utc)
         due_tasks = await repository.get_due_scheduled_tasks(now.isoformat())
-        for scheduled_task in due_tasks:
+        semaphore = asyncio.Semaphore(MAX_SCHEDULED_TASK_DISPATCH_CONCURRENCY)
+        await asyncio.gather(
+            *[self._consume_due_scheduled_task(scheduled_task, semaphore) for scheduled_task in due_tasks]
+        )
+
+    async def _consume_due_scheduled_task(self, scheduled_task: dict, semaphore: asyncio.Semaphore) -> None:
+        """
+        消費單一到期排程任務，外層用 semaphore 控制併發數。
+
+        Args:
+            scheduled_task: repository 回傳的排程任務資料
+            semaphore: 排程分派併發限制
+        """
+        async with semaphore:
             try:
                 task_payload = json.loads(scheduled_task["payload_json"])
                 if not _manifest_handles_scheduled_task(scheduled_task.get("manifest_json")):
                     await repository.delete_scheduled_task(scheduled_task["task_id"])
-                    continue
+                    return
                 dispatch_succeeded = await dispatch_event(
                     scheduled_task["guild_id"],
                     "on_scheduled_task",
@@ -270,14 +287,12 @@ class PluginPlatformListeners(commands.Cog):
                     target_plugin_id=scheduled_task["plugin_id"],
                 )
                 if not dispatch_succeeded:
-                    continue
+                    return
                 recurring_interval_seconds = scheduled_task["recurring_interval_seconds"]
                 if recurring_interval_seconds is None:
                     await repository.delete_scheduled_task(scheduled_task["task_id"])
                 else:
-                    next_run_at = _calculate_next_run_at(
-                        scheduled_task["run_at"], recurring_interval_seconds
-                    )
+                    next_run_at = _calculate_next_run_at(scheduled_task["run_at"], recurring_interval_seconds)
                     await repository.update_scheduled_task_run_at(scheduled_task["task_id"], next_run_at)
             except Exception as error:
                 logger.error(f"處理外掛排程任務失敗：{error}", exc_info=True)
@@ -299,6 +314,34 @@ def _get_interaction_component_type(interaction_data: dict) -> str:
     if component_type in {3, 5, 6, 7, 8}:
         return "select_menu"
     return "unknown"
+
+
+def _normalize_discord_timestamp(value: object) -> str | None:
+    """
+    將 Discord payload 的時間欄位標準化成平台內部使用的 ISO 8601 字串。
+
+    Args:
+        value: Discord raw payload 內的時間值
+
+    Returns:
+        ISO 8601 字串；無法解析時回傳 None
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        timestamp = value
+    elif isinstance(value, str):
+        try:
+            timestamp = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            logger.error(f"Discord 編輯時間格式不合法：{value}")
+            return None
+    else:
+        logger.error(f"Discord 編輯時間型別不合法：{type(value).__name__}")
+        return None
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
+    return timestamp.astimezone(datetime.timezone.utc).isoformat()
 
 
 def _calculate_next_run_at(run_at: str, recurring_interval_seconds: int) -> str:

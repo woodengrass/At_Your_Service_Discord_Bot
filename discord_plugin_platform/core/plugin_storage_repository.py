@@ -8,40 +8,51 @@
 
 import datetime
 import json
+import os
 import time
 import uuid
 from typing import Any
 
 import aiosqlite
 
+from core.capability_errors import ScheduledTaskLimitExceededError, StorageLimitExceededError
 from core.database import get_db
+
+
+def _get_int_setting(name: str, default: int) -> int:
+    """
+    從環境變數讀取正整數設定，未設定時使用預設值。
+
+    Args:
+        name: 環境變數名稱
+        default: 預設值
+
+    Returns:
+        設定值；若環境變數不存在則回傳 default
+    """
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    parsed_value = int(raw_value)
+    if parsed_value < 1:
+        raise ValueError(f"{name} 必須是正整數")
+    return parsed_value
+
 
 # storage 能力沒有任何大小/數量上限的話，外掛可以把 SQLite 當成無限儲存空間濫用
 # （不管是惡意還是單純寫壞的迴圈），這幾個常數就是防這個的軟性上限，數字不是
 # 精算出來的，是「一般排行榜/計數器類外掛用得很夠、濫用起來很快就會撞到」的量級，
 # 之後有真實用量數據再校準（比照 design.md 第 5.4 節資源限制的做法）。
-MAX_STORAGE_KEY_LENGTH = 256
-MAX_STORAGE_VALUE_BYTES = 64 * 1024
-MAX_STORAGE_KEYS_PER_INSTALLATION = 1000
-MAX_LEADERBOARD_LIMIT = 100
-MAX_SCHEDULED_TASKS_PER_INSTALLATION = 1000
-MAX_SCHEDULED_TASK_NAME_LENGTH = 128
-MAX_SCHEDULED_TASK_PAYLOAD_BYTES = 16 * 1024
-MIN_SCHEDULE_DELAY_SECONDS = 1
-MAX_SCHEDULE_DELAY_SECONDS = 60 * 60 * 24 * 365
-MIN_RECURRING_INTERVAL_SECONDS = 60
-
-
-class StorageLimitExceededError(Exception):
-    """
-    storage_set() 超過 key 長度、value 大小或每個安裝的 key 數量上限時拋出。
-    """
-
-
-class ScheduledTaskLimitExceededError(Exception):
-    """
-    schedule_task() 超過數量、payload 大小或時間範圍限制時拋出。
-    """
+MAX_STORAGE_KEY_LENGTH = _get_int_setting("PLUGIN_PLATFORM_MAX_STORAGE_KEY_LENGTH", 256)
+MAX_STORAGE_VALUE_BYTES = _get_int_setting("PLUGIN_PLATFORM_MAX_STORAGE_VALUE_BYTES", 64 * 1024)
+MAX_STORAGE_KEYS_PER_INSTALLATION = _get_int_setting("PLUGIN_PLATFORM_MAX_STORAGE_KEYS_PER_INSTALLATION", 1000)
+MAX_LEADERBOARD_LIMIT = _get_int_setting("PLUGIN_PLATFORM_MAX_LEADERBOARD_LIMIT", 100)
+MAX_SCHEDULED_TASKS_PER_INSTALLATION = _get_int_setting("PLUGIN_PLATFORM_MAX_SCHEDULED_TASKS_PER_INSTALLATION", 1000)
+MAX_SCHEDULED_TASK_NAME_LENGTH = _get_int_setting("PLUGIN_PLATFORM_MAX_SCHEDULED_TASK_NAME_LENGTH", 128)
+MAX_SCHEDULED_TASK_PAYLOAD_BYTES = _get_int_setting("PLUGIN_PLATFORM_MAX_SCHEDULED_TASK_PAYLOAD_BYTES", 16 * 1024)
+MIN_SCHEDULE_DELAY_SECONDS = _get_int_setting("PLUGIN_PLATFORM_MIN_SCHEDULE_DELAY_SECONDS", 1)
+MAX_SCHEDULE_DELAY_SECONDS = _get_int_setting("PLUGIN_PLATFORM_MAX_SCHEDULE_DELAY_SECONDS", 60 * 60 * 24 * 365)
+MIN_RECURRING_INTERVAL_SECONDS = _get_int_setting("PLUGIN_PLATFORM_MIN_RECURRING_INTERVAL_SECONDS", 60)
 
 
 def _now_iso() -> str:
@@ -240,19 +251,20 @@ async def storage_get_leaderboard(
 
     db = db or get_db()
     async with db.execute(
-        "SELECT key, value_json FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key LIKE ? ESCAPE '\\'",
-        (guild_id, plugin_id, _escape_like_pattern(prefix) + "%"),
+        """
+        SELECT key, json_extract(value_json, '$') AS numeric_value
+        FROM plugin_kv_store
+        WHERE guild_id = ?
+          AND plugin_id = ?
+          AND key LIKE ? ESCAPE '\\'
+          AND json_type(value_json, '$') IN ('integer', 'real')
+        ORDER BY numeric_value DESC, key ASC
+        LIMIT ?
+        """,
+        (guild_id, plugin_id, _escape_like_pattern(prefix) + "%", limit),
     ) as cursor:
         rows = await cursor.fetchall()
-
-    entries = []
-    for key, value_json in rows:
-        value = json.loads(value_json)
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            entries.append({"key": key, "value": value})
-
-    entries.sort(key=lambda entry: entry["value"], reverse=True)
-    return entries[:limit]
+    return [{"key": key, "value": value} for key, value in rows]
 
 
 async def create_scheduled_task(

@@ -4,13 +4,22 @@
 """
 
 import asyncio
+import logging
+import multiprocessing
+from multiprocessing.connection import Connection
 
 import aiosqlite
 
 from core.bot_registry import get_bot
-from core.capability_api import ExecutionContext
+from core.capability_api import ExecutionContext, InProcessBackend, RpcBackend
 from sandbox.capability_bindings import bind_capabilities
-from sandbox.engine import create_sandbox_runtime, execute_untrusted_code, run_with_limits
+from sandbox.engine import SandboxExecutionError, create_sandbox_runtime, execute_untrusted_code, run_with_limits
+from sandbox.rpc_server import serve_capability_requests
+
+logger = logging.getLogger(__name__)
+
+EXECUTION_TIMEOUT_SECONDS = 2.0
+PROCESS_TERMINATE_GRACE_SECONDS = 1.0
 
 
 async def execute_plugin_event(
@@ -23,8 +32,7 @@ async def execute_plugin_event(
     execution_db: aiosqlite.Connection | None = None,
 ) -> list[dict]:
     """
-    執行單次外掛事件分派的完整流程：建立 VM → 綁定能力 → 在背景執行緒載入外掛
-    原始碼並呼叫對應事件處理函式 → 收集動作佇列 → 回傳。
+    在全新子行程執行單次外掛事件，主行程只負責服務能力 RPC 與回收行程。
 
     Args:
         guild_id: 伺服器 ID
@@ -33,61 +41,128 @@ async def execute_plugin_event(
         event_type: 觸發的事件名稱，對應 Lua 裡的同名函式（例如 on_message）
         event_payload: 事件資料
         granted_capabilities: 這次安裝授權的能力旗標集合
-        execution_db: 這次執行專用的資料庫連線，只有這次安裝有 storage／
-            schedule_task 能力時 core/dispatcher.py 才會傳入；storage/schedule
-            相關的能力函式會用這條連線而不是共用連線，讓 dispatcher 事後可以依
-            驗證結果決定 commit 或 rollback，不會被平台上其他地方的 commit()
-            干擾（見 design.md 第 5.4.2 節，SAVEPOINT 方案已證實有此問題被放棄）。
-            None 代表這次安裝沒有這兩個能力，storage/schedule 函式根本不會被綁進去。
+        execution_db: 這次執行專用的資料庫連線，留在主行程端的 InProcessBackend 使用，
+            不會傳進子行程，避免繞開 dispatcher 的 commit/rollback 邊界。
 
     Returns:
         動作清單，格式見 design.md 第 3.2 節「動作清單格式」
 
     Raises:
-        SandboxExecutionError: 外掛原始碼載入失敗、執行逾時、超過資源限制，
-            或執行中途拋出未捕捉例外（中途崩潰時整批動作清單回退，
-            不回傳任何部分結果，見 design.md 第 3.2 節）
-
-    Note:
-        沙箱執行本身是同步、CPU-bound 的呼叫，這裡用 `loop.run_in_executor()`
-        把「載入原始碼」跟「呼叫事件處理函式」一起丟到背景執行緒跑，能力函式
-        裡需要真正 I/O（storage、schedule_task、read_message_history）的部分
-        再透過 `ExecutionContext.run_coroutine_sync()` 跨執行緒橋接回這個
-        event loop，見 design.md 第 3.2 節 Track A.3 的說明。這裡沒有另外用
-        子行程隔離，第一階段先用執行緒，之後真的需要行程級隔離時只需要改
-        這裡怎麼建立/呼叫沙箱，能力 API 的介面不受影響。
+        SandboxExecutionError: 外掛原始碼載入失敗、執行逾時、超過資源限制，或子行程異常終止
     """
-    context = ExecutionContext(
+    process_context = multiprocessing.get_context("spawn")
+    parent_connection, child_connection = process_context.Pipe(duplex=True)
+    process = process_context.Process(
+        target=_child_process_main,
+        args=(
+            child_connection,
+            guild_id,
+            plugin_id,
+            source_code,
+            event_type,
+            event_payload,
+            granted_capabilities,
+        ),
+    )
+    process.start()
+    child_connection.close()
+
+    backend = InProcessBackend(
         guild_id=guild_id,
         plugin_id=plugin_id,
-        granted_capabilities=granted_capabilities,
         bot=get_bot(),
         event_loop=asyncio.get_running_loop(),
         execution_db=execution_db,
     )
+    rpc_task = asyncio.create_task(serve_capability_requests(parent_connection, backend))
 
-    runtime = create_sandbox_runtime()
-    bind_capabilities(runtime, context)
+    try:
+        done_message = await asyncio.wait_for(rpc_task, timeout=EXECUTION_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError as error:
+        await _terminate_process(process)
+        rpc_task.cancel()
+        raise SandboxExecutionError("外掛子行程執行逾時") from error
+    except Exception as error:
+        await _join_process(process)
+        raise SandboxExecutionError(f"外掛子行程未正常回傳結果：{error}") from error
+    finally:
+        parent_connection.close()
 
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, _run_sandboxed, runtime, source_code, event_type, event_payload)
+    await _join_process(process)
+    if process.exitcode not in (0, None):
+        raise SandboxExecutionError(f"外掛子行程異常終止，結束碼 {process.exitcode}")
 
-    return context.action_queue
+    error_payload = done_message.get("error")
+    if error_payload is not None:
+        raise SandboxExecutionError(error_payload.get("message", "外掛子行程執行失敗"))
+    return done_message.get("action_queue", [])
 
 
-def _run_sandboxed(runtime, source_code: str, event_type: str, event_payload: dict) -> None:
+def _child_process_main(
+    connection: Connection,
+    guild_id: int,
+    plugin_id: str,
+    source_code: str,
+    event_type: str,
+    event_payload: dict,
+    granted_capabilities: set[str],
+) -> None:
     """
-    在背景執行緒裡依序載入外掛原始碼、呼叫事件處理函式，兩步都在同一個
-    受資源限制保護的 LuaRuntime 上執行。
+    子行程進入點：建立 Lua VM、綁定 RpcBackend、執行外掛並回傳最終結果。
 
     Args:
-        runtime: 已完成能力綁定的 LuaRuntime
-        source_code: 外掛的 Lua 原始碼
+        connection: 子行程端 pipe connection
+        guild_id: 伺服器 ID
+        plugin_id: 外掛 ID
+        source_code: 外掛 Lua 原始碼
         event_type: 要呼叫的事件處理函式名稱
         event_payload: 事件資料
-
-    Raises:
-        SandboxExecutionError: 原始碼載入失敗，或事件處理函式執行失敗
+        granted_capabilities: 已授權能力集合
     """
-    execute_untrusted_code(runtime, source_code)
-    run_with_limits(runtime, event_type, event_payload)
+    try:
+        context = ExecutionContext(
+            guild_id=guild_id,
+            plugin_id=plugin_id,
+            granted_capabilities=granted_capabilities,
+            backend=RpcBackend(connection),
+        )
+        runtime = create_sandbox_runtime()
+        bind_capabilities(runtime, context)
+        execute_untrusted_code(runtime, source_code)
+        run_with_limits(runtime, event_type, event_payload)
+        connection.send({"kind": "done", "action_queue": context.action_queue})
+    except Exception as error:
+        connection.send(
+            {
+                "kind": "done",
+                "error": {"type": "SandboxExecutionError", "message": str(error)},
+            }
+        )
+    finally:
+        connection.close()
+
+
+async def _terminate_process(process: multiprocessing.Process) -> None:
+    """
+    終止逾時子行程，先 terminate，仍存活則 kill，最後一定 join。
+
+    Args:
+        process: 要清理的子行程
+    """
+    if process.is_alive():
+        process.terminate()
+        await _join_process(process, PROCESS_TERMINATE_GRACE_SECONDS)
+    if process.is_alive():
+        process.kill()
+    await _join_process(process)
+
+
+async def _join_process(process: multiprocessing.Process, timeout: float | None = None) -> None:
+    """
+    在背景執行緒等待 process.join()，避免阻塞 asyncio event loop。
+
+    Args:
+        process: 要等待的子行程
+        timeout: join timeout，None 表示等到結束
+    """
+    await asyncio.to_thread(process.join, timeout)

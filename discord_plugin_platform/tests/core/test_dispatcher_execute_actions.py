@@ -266,7 +266,7 @@ async def test_one_failing_action_does_not_block_the_rest():
     guild = _FakeGuild(recorder, channels={42: broken_channel, 43: working_channel})
     bot_registry.set_bot(_FakeBot(guild))
 
-    await dispatcher._execute_actions(
+    action_errors = await dispatcher._execute_actions(
         1,
         [
             {"type": "edit_message", "params": {"channel_id": 42, "message_id": 100, "content": "x"}},
@@ -275,6 +275,7 @@ async def test_one_failing_action_does_not_block_the_rest():
     )
 
     assert recorder.calls == [("send", 43, {"content": "still works", "embed": None, "view": None})]
+    assert action_errors == [{"index": 0, "type": "edit_message", "error": "找不到訊息"}]
 
 
 async def test_unknown_action_type_is_skipped_not_raised():

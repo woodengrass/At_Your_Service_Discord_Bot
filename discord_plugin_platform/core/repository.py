@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import time
 
 from core.database import get_db
 
@@ -8,6 +9,9 @@ logger = logging.getLogger(__name__)
 
 MIN_QUOTA_OVERRIDE = 0
 MAX_QUOTA_OVERRIDE = 10_000
+EVENT_SUBSCRIPTION_CACHE_TTL_SECONDS = 10
+
+_event_subscription_cache: dict[tuple[int, tuple[str, ...]], tuple[float, bool]] = {}
 
 
 def _now_iso() -> str:
@@ -37,6 +41,21 @@ def _plugin_from_row(row: tuple[object, ...]) -> dict:
         "latest_version": row[3],
         "status": row[4],
     }
+
+
+def clear_event_subscription_cache(guild_id: int | None = None) -> None:
+    """
+    清除事件訂閱快取，避免安裝、解除安裝或審核狀態變更後沿用舊結果。
+
+    Args:
+        guild_id: 指定伺服器 ID；None 表示清除全部快取
+    """
+    if guild_id is None:
+        _event_subscription_cache.clear()
+        return
+    for cache_key in list(_event_subscription_cache.keys()):
+        if cache_key[0] == guild_id:
+            _event_subscription_cache.pop(cache_key, None)
 
 
 async def submit_plugin_version(
@@ -83,6 +102,7 @@ async def submit_plugin_version(
             (plugin_id, version, manifest_json, source_code, capability_api_version, _now_iso()),
         )
         await db.commit()
+        clear_event_subscription_cache()
     except Exception as error:
         await db.rollback()
         logger.error(f"提交外掛版本失敗：{error}", exc_info=True)
@@ -217,6 +237,8 @@ async def _set_plugin_status(plugin_id: str, status: str) -> bool:
         (status, plugin_id),
     )
     await db.commit()
+    if cursor.rowcount > 0:
+        clear_event_subscription_cache()
     return cursor.rowcount > 0
 
 
@@ -253,6 +275,7 @@ async def approve_plugin(plugin_id: str) -> bool:
             (plugin_id, latest_version, _now_iso()),
         )
         await db.commit()
+        clear_event_subscription_cache()
         return True
     except Exception as error:
         await db.rollback()
@@ -294,6 +317,7 @@ async def reject_plugin(plugin_id: str, reason: str) -> bool:
             (plugin_id, latest_version, reason, _now_iso()),
         )
         await db.commit()
+        clear_event_subscription_cache()
         return True
     except Exception as error:
         await db.rollback()
@@ -349,12 +373,12 @@ async def create_installation(
         ON CONFLICT(guild_id, plugin_id) DO UPDATE SET
             installed_version = excluded.installed_version,
             granted_capabilities_json = excluded.granted_capabilities_json,
-            enabled = 1,
-            installed_at = excluded.installed_at
+            enabled = 1
         """,
         (guild_id, plugin_id, version, granted_capabilities_json, _now_iso()),
     )
     await db.commit()
+    clear_event_subscription_cache(guild_id)
 
 
 async def delete_installation(guild_id: int, plugin_id: str) -> bool:
@@ -383,6 +407,8 @@ async def delete_installation(guild_id: int, plugin_id: str) -> bool:
         (guild_id, plugin_id),
     )
     await db.commit()
+    if cursor.rowcount > 0:
+        clear_event_subscription_cache(guild_id)
     return cursor.rowcount > 0
 
 
@@ -410,6 +436,7 @@ async def delete_all_installations_for_guild(guild_id: int) -> list[str]:
     await db.execute("DELETE FROM plugin_installations WHERE guild_id = ?", (guild_id,))
     await db.execute("DELETE FROM plugin_scheduled_tasks WHERE guild_id = ?", (guild_id,))
     await db.commit()
+    clear_event_subscription_cache(guild_id)
     return deleted_plugin_ids
 
 
@@ -505,6 +532,12 @@ async def guild_has_event_subscription(guild_id: int, event_types: set[str]) -> 
     Returns:
         True 表示至少一個啟用安裝訂閱其中一個事件
     """
+    cache_key = (guild_id, tuple(sorted(event_types)))
+    now = time.monotonic()
+    cached_result = _event_subscription_cache.get(cache_key)
+    if cached_result is not None and cached_result[0] > now:
+        return cached_result[1]
+
     db = get_db()
     async with db.execute(
         """
@@ -529,7 +562,9 @@ async def guild_has_event_subscription(guild_id: int, event_types: set[str]) -> 
             logger.error(f"讀取外掛 manifest 事件訂閱失敗：{error}", exc_info=True)
             continue
         if event_types.intersection(manifest_data.get("event_hooks", [])):
+            _event_subscription_cache[cache_key] = (now + EVENT_SUBSCRIPTION_CACHE_TTL_SECONDS, True)
             return True
+    _event_subscription_cache[cache_key] = (now + EVENT_SUBSCRIPTION_CACHE_TTL_SECONDS, False)
     return False
 
 
@@ -679,7 +714,7 @@ async def log_execution(
         actions_json: 本次執行產生的動作清單（JSON 字串）
         execution_ms: 執行耗時（毫秒）
         outcome: 執行結果，success/quota_exceeded/crashed/rejected_invalid_action
-        error: 失敗訊息，僅 crashed/rejected_invalid_action 時才有內容
+        error: 失敗訊息或成功執行中的 action-level 錯誤摘要
     """
     db = get_db()
     await db.execute(

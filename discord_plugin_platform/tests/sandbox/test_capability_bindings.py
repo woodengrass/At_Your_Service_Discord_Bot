@@ -12,7 +12,7 @@ import asyncio
 import pytest
 
 from core import database
-from core.capability_api import ExecutionContext
+from core.capability_api import ExecutionContext, InProcessBackend
 from sandbox.capability_bindings import bind_capabilities
 from sandbox.engine import create_sandbox_runtime, execute_untrusted_code, run_with_limits
 
@@ -68,12 +68,17 @@ async def temp_db(tmp_path, monkeypatch):
 
 
 def _make_context(granted_capabilities, guild, event_loop, guild_id=1, plugin_id="test_plugin"):
+    backend = InProcessBackend(
+        guild_id=guild_id,
+        plugin_id=plugin_id,
+        bot=_FakeBot(guild),
+        event_loop=event_loop,
+    )
     return ExecutionContext(
         guild_id=guild_id,
         plugin_id=plugin_id,
         granted_capabilities=granted_capabilities,
-        bot=_FakeBot(guild),
-        event_loop=event_loop,
+        backend=backend,
     )
 
 

@@ -36,10 +36,11 @@ class _FakeBot:
 
 @pytest.fixture
 def fake_bot():
+    # 不用自己清理，tests/conftest.py 的 _reset_bot_registry autouse fixture
+    # 每個測試結束後都會自動 bot_registry.set_bot(None)。
     bot = _FakeBot(_FakeGuild(1))
     bot_registry.set_bot(bot)
-    yield bot
-    bot_registry.set_bot(None)
+    return bot
 
 
 async def test_execute_plugin_event_returns_queued_actions(fake_bot):
@@ -106,15 +107,12 @@ async def test_execute_plugin_event_propagates_syntax_error(fake_bot):
 
 async def test_execute_plugin_event_missing_handler_raises():
     bot_registry.set_bot(_FakeBot(_FakeGuild(1)))
-    try:
-        with pytest.raises(SandboxExecutionError, match="沒有定義事件處理函式"):
-            await execute_plugin_event(
-                guild_id=1,
-                plugin_id="test_plugin",
-                source_code="function on_message(payload) end",
-                event_type="on_member_join",
-                event_payload={},
-                granted_capabilities=set(),
-            )
-    finally:
-        bot_registry.set_bot(None)
+    with pytest.raises(SandboxExecutionError, match="沒有定義事件處理函式"):
+        await execute_plugin_event(
+            guild_id=1,
+            plugin_id="test_plugin",
+            source_code="function on_message(payload) end",
+            event_type="on_member_join",
+            event_payload={},
+            granted_capabilities=set(),
+        )

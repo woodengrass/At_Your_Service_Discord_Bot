@@ -137,6 +137,89 @@ async def test_dispatch_event_passes_source_code_and_granted_capabilities(monkey
     assert logged_entries == [{"outcome": "success", "actions_json": "[]"}]
 
 
+async def test_dispatch_event_recovers_when_execute_actions_raises(monkeypatch) -> None:
+    """
+    _execute_actions() 呼叫 bot_registry.get_bot()，如果 Cog 還沒載入完成
+    （或測試忘記 set_bot()）會丟出未捕獲的 RuntimeError。這裡驗證這種
+    基礎設施層級的例外只會讓「這一個安裝」記成 crashed，不會炸穿整個
+    dispatch_event()、連帶讓迴圈裡後面其他安裝都沒被處理。
+    """
+    logged_entries: list[dict] = []
+
+    async def fake_get_enabled_installations_for_guild(guild_id: int) -> list[dict]:
+        return [
+            {
+                "guild_id": guild_id,
+                "plugin_id": "plugin_a",
+                "installed_version": "1.0.0",
+                "granted_capabilities_json": json.dumps(["send_message"]),
+                "execution_quota_override": None,
+                "action_quota_override": None,
+                "manifest_json": json.dumps({"event_hooks": ["on_message"]}),
+            },
+            {
+                "guild_id": guild_id,
+                "plugin_id": "plugin_b",
+                "installed_version": "1.0.0",
+                "granted_capabilities_json": json.dumps(["send_message"]),
+                "execution_quota_override": None,
+                "action_quota_override": None,
+                "manifest_json": json.dumps({"event_hooks": ["on_message"]}),
+            },
+        ]
+
+    async def fake_get_plugin_source(plugin_id: str, version: str) -> str | None:
+        return "function on_message(payload) end"
+
+    async def fake_execute_plugin_event(**kwargs: object) -> list[dict]:
+        return [{"type": "send_message", "params": {"channel_id": 1, "content": "hi"}}]
+
+    async def fake_check_and_consume_execution_quota(guild_id: int, plugin_id: str) -> bool:
+        return True
+
+    async def fake_check_and_consume_action_quota(guild_id: int, plugin_id: str, action_count: int) -> bool:
+        return True
+
+    async def fake_execute_actions(guild_id: int, actions: list[dict]) -> None:
+        # 模擬 bot_registry.get_bot() 在 set_bot() 還沒被呼叫時丟出的例外，
+        # 只讓第一個安裝（plugin_a）踩到，第二個安裝（plugin_b）應該正常執行。
+        raise RuntimeError("尚未註冊 bot 實例，請先呼叫 set_bot()")
+
+    async def fake_log_execution(
+        guild_id: int,
+        plugin_id: str,
+        event_type: str,
+        actions_json: str,
+        execution_ms: int,
+        outcome: str,
+        error: str | None = None,
+    ) -> None:
+        logged_entries.append({"plugin_id": plugin_id, "outcome": outcome})
+
+    monkeypatch.setattr(
+        dispatcher.repository,
+        "get_enabled_installations_for_guild",
+        fake_get_enabled_installations_for_guild,
+    )
+    monkeypatch.setattr(dispatcher.repository, "get_plugin_source", fake_get_plugin_source)
+    monkeypatch.setattr(dispatcher.repository, "log_execution", fake_log_execution)
+    monkeypatch.setattr(dispatcher.quota, "check_and_consume_execution_quota", fake_check_and_consume_execution_quota)
+    monkeypatch.setattr(dispatcher.quota, "check_and_consume_action_quota", fake_check_and_consume_action_quota)
+    monkeypatch.setattr(dispatcher.suspension, "is_suspended", lambda plugin_id: False)
+    monkeypatch.setattr(dispatcher, "execute_plugin_event", fake_execute_plugin_event)
+    monkeypatch.setattr(dispatcher, "_execute_actions", fake_execute_actions)
+
+    dispatch_succeeded = await dispatcher.dispatch_event(1111, "on_message", {"content": "hello"})
+
+    # plugin_a 因為 _execute_actions() 拋例外而失敗，但沒有整批中止，
+    # dispatch_event() 應該還是正常回傳、且沒有整個崩潰。
+    assert dispatch_succeeded is False
+    assert logged_entries == [
+        {"plugin_id": "plugin_a", "outcome": "crashed"},
+        {"plugin_id": "plugin_b", "outcome": "crashed"},
+    ]
+
+
 async def test_dispatch_event_logs_crashed_when_source_code_missing(monkeypatch) -> None:
     """
     找不到外掛原始碼時，dispatcher 應記錄 crashed 並跳過執行。

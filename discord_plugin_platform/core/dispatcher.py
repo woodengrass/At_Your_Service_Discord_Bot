@@ -167,7 +167,20 @@ async def dispatch_event(
             await repository.log_execution(guild_id, plugin_id, event_type, "[]", execution_ms, "quota_exceeded")
             continue
 
-        await _execute_actions(guild_id, actions)
+        try:
+            await _execute_actions(guild_id, actions)
+        except Exception as error:
+            # _execute_actions() 本身已經把每個動作的例外個別接住記錄，不會往外拋；
+            # 這裡攔到的是更底層的基礎設施問題（最明確的例子是 bot_registry.get_bot()
+            # 在 Cog 還沒載入完成前被呼叫，丟出 RuntimeError）。原本這裡完全沒保護，
+            # 會直接炸穿 dispatch_event()，導致 for 迴圈裡後面所有其他安裝都不會被
+            # 處理，不只是這一個安裝失敗，範圍比表面看起來大，一定要接住。
+            logger.error(f"執行動作清單失敗（plugin_id={plugin_id}）：{error}", exc_info=True)
+            await repository.log_execution(
+                guild_id, plugin_id, event_type, "[]", execution_ms, "crashed", str(error)
+            )
+            continue
+
         await repository.log_execution(
             guild_id, plugin_id, event_type, json.dumps(actions, ensure_ascii=False), execution_ms, "success"
         )

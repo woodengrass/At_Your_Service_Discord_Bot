@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import random
 import time
 from collections import deque
@@ -9,6 +10,8 @@ import aiosqlite
 import discord
 
 from core import plugin_storage_repository
+
+logger = logging.getLogger(__name__)
 
 # 每個函式對應的授權旗標，None 代表基本能力（隨安裝自動取得）
 CAPABILITY_OWNERS: dict[str, str | None] = {
@@ -143,10 +146,25 @@ class ExecutionContext:
             coroutine 執行完的回傳值
 
         Raises:
-            TimeoutError: 超過 CROSS_THREAD_CALL_TIMEOUT_SECONDS 秒還沒有結果
+            TimeoutError: 超過 CROSS_THREAD_CALL_TIMEOUT_SECONDS 秒還沒有結果。逾時時會嘗試
+                取消還在主 event loop 上跑的 coroutine，避免它變成孤兒繼續執行——
+                如果這個 coroutine 用的是 storage/schedule_task 的 execution_db 專用連線
+                （見 core/dispatcher.py），呼叫端（dispatcher）接到這個例外後會立刻
+                rollback 並關閉該連線，孤兒 coroutine 若還在跑就可能對著一條正在被
+                收尾的連線寫東西。取消不保證瞬間生效（asyncio cancellation 是合作式的，
+                已經在等待 aiosqlite 內部執行緒回應的那一段無法中途打斷），只能縮小
+                風險視窗，真正根治需要 Track G 的行程隔離（逾時直接砍整個子行程）。
         """
         future = asyncio.run_coroutine_threadsafe(coro, self.event_loop)
-        return future.result(timeout=CROSS_THREAD_CALL_TIMEOUT_SECONDS)
+        try:
+            return future.result(timeout=CROSS_THREAD_CALL_TIMEOUT_SECONDS)
+        except TimeoutError:
+            future.cancel()
+            logger.warning(
+                f"能力函式跨執行緒呼叫逾時（超過 {CROSS_THREAD_CALL_TIMEOUT_SECONDS} 秒），"
+                "已嘗試取消，但無法保證立即停止"
+            )
+            raise
 
     def get_guild(self) -> discord.Guild | None:
         """

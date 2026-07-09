@@ -386,6 +386,33 @@ async def delete_installation(guild_id: int, plugin_id: str) -> bool:
     return cursor.rowcount > 0
 
 
+async def delete_all_installations_for_guild(guild_id: int) -> list[str]:
+    """
+    刪除指定伺服器的所有外掛安裝紀錄與其排程任務，機器人被踢出伺服器時呼叫。
+
+    不呼叫 delete_installation() 逐一刪（會變成每個安裝各自一次 commit），
+    直接用 guild_id 一次刪完兩張表，理由跟 delete_installation() 一樣：
+    沒清排程任務會變成永遠重試、永遠不會消失的殭屍任務。
+
+    Args:
+        guild_id: 伺服器 ID
+
+    Returns:
+        被刪除的 plugin_id 清單，呼叫端可能需要知道刪了哪些外掛（例如記錄稽核紀錄）
+    """
+    db = get_db()
+    async with db.execute(
+        "SELECT plugin_id FROM plugin_installations WHERE guild_id = ?", (guild_id,)
+    ) as cursor:
+        rows = await cursor.fetchall()
+    deleted_plugin_ids = [row[0] for row in rows]
+
+    await db.execute("DELETE FROM plugin_installations WHERE guild_id = ?", (guild_id,))
+    await db.execute("DELETE FROM plugin_scheduled_tasks WHERE guild_id = ?", (guild_id,))
+    await db.commit()
+    return deleted_plugin_ids
+
+
 async def get_due_scheduled_tasks(now_iso: str) -> list[dict]:
     """
     取得所有已到期的外掛排程任務。

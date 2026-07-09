@@ -10,7 +10,7 @@ import logging
 import discord
 from discord.ext import commands, tasks
 
-from core import bot_registry, message_cache, repository, suspension
+from core import bot_registry, message_cache, plugin_storage_repository, repository, suspension
 from core.database import get_db
 from core.dispatcher import dispatch_event
 
@@ -202,12 +202,18 @@ class PluginPlatformListeners(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild) -> None:
         """
-        機器人被移出伺服器時清理該伺服器的訊息快取。
+        機器人被移出伺服器時清理該伺服器的所有外掛相關資料：安裝紀錄、排程任務、
+        KV 儲存、訊息快取。不清的話這些資料會永久殘留在資料庫，機器人再也接觸
+        不到這個伺服器、也沒有任何操作介面能清掉它們。
 
         Args:
             guild: 被移除的伺服器
         """
+        deleted_plugin_ids = await repository.delete_all_installations_for_guild(guild.id)
+        await plugin_storage_repository.delete_all_storage_for_guild(guild.id)
         message_cache.purge_guild(guild.id)
+        if deleted_plugin_ids:
+            logger.info(f"伺服器 {guild.id} 已移除，清理外掛安裝：{deleted_plugin_ids}")
 
     @commands.Cog.listener()
     async def on_voice_state_update(

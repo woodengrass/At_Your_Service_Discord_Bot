@@ -1,4 +1,5 @@
 import datetime
+import json
 from types import SimpleNamespace
 
 import discord
@@ -201,16 +202,67 @@ async def test_raw_message_edit_and_delete_use_message_cache(monkeypatch) -> Non
     message_cache.purge_guild(1111)
 
 
-async def test_on_guild_remove_purges_message_cache() -> None:
+async def test_on_guild_remove_purges_message_cache(monkeypatch) -> None:
     """
-    bot 被移出伺服器時應清理該伺服器所有訊息快取。
+    bot 被移出伺服器時應清理該伺服器所有訊息快取，也要清外掛安裝與 storage。
     """
+
+    async def fake_delete_all_installations_for_guild(guild_id: int) -> list[str]:
+        return []
+
+    async def fake_delete_all_storage_for_guild(guild_id: int) -> None:
+        return None
+
+    monkeypatch.setattr(
+        listeners.repository, "delete_all_installations_for_guild", fake_delete_all_installations_for_guild
+    )
+    monkeypatch.setattr(
+        listeners.plugin_storage_repository, "delete_all_storage_for_guild", fake_delete_all_storage_for_guild
+    )
+
     cog = listeners.PluginPlatformListeners(FakeBot())
     message_cache.cache_message(1111, 4444, 3333, 2222, "content")
 
     await cog.on_guild_remove(SimpleNamespace(id=1111))
 
     assert message_cache.get_cached_message(4444, 3333) is None
+
+
+async def test_on_guild_remove_deletes_installations_and_storage(tmp_path, monkeypatch) -> None:
+    """
+    確認 on_guild_remove 真的呼叫 repository/plugin_storage_repository 清掉這個
+    伺服器的安裝、排程任務、KV 儲存，其他伺服器的資料不受影響。
+    """
+    from core import database, plugin_storage_repository, repository
+
+    monkeypatch.setattr(database, "DB_PATH", str(tmp_path / "test_guild_remove.db"))
+    await database.init_db()
+    try:
+        manifest_json = json.dumps({"name": "x", "event_hooks": []})
+        await repository.submit_plugin_version(
+            plugin_id="p",
+            author_id=1,
+            name="p",
+            version="1.0.0",
+            manifest_json=manifest_json,
+            source_code="function on_message(payload) end",
+            capability_api_version=1,
+        )
+        await repository.create_installation(1111, "p", "1.0.0", ["storage"])
+        await repository.create_installation(2222, "p", "1.0.0", ["storage"])
+        await plugin_storage_repository.storage_set(1111, "p", "key", "value")
+        await plugin_storage_repository.storage_set(2222, "p", "key", "value")
+
+        cog = listeners.PluginPlatformListeners(FakeBot())
+        await cog.on_guild_remove(SimpleNamespace(id=1111))
+
+        assert await repository.get_installation(1111, "p") is None
+        assert await plugin_storage_repository.storage_get(1111, "p", "key") is None
+        # 另一個伺服器的資料不受影響
+        assert await repository.get_installation(2222, "p") is not None
+        assert await plugin_storage_repository.storage_get(2222, "p", "key") == "value"
+    finally:
+        await database.close_db()
 
 
 async def test_voice_state_update_dispatches_channel_ids(monkeypatch) -> None:

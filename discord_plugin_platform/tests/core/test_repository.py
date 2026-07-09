@@ -195,6 +195,35 @@ async def test_delete_installation_also_deletes_its_scheduled_tasks(plugin_datab
     assert due_tasks == []
 
 
+async def test_delete_all_installations_for_guild(plugin_database: aiosqlite.Connection) -> None:
+    """
+    機器人被踢出伺服器時要清掉該伺服器全部外掛安裝與排程任務，不影響其他伺服器。
+    """
+    await _submit_example_plugin("plugin_a")
+    await _submit_example_plugin("plugin_b")
+    await repository.create_installation(1111, "plugin_a", "1.0.0", ["schedule_task"])
+    await repository.create_installation(1111, "plugin_b", "1.0.0", [])
+    await repository.create_installation(2222, "plugin_a", "1.0.0", [])
+    await plugin_database.execute(
+        """
+        INSERT INTO plugin_scheduled_tasks
+            (task_id, guild_id, plugin_id, run_at, payload_json, recurring_interval_seconds)
+        VALUES ('task-1', 1111, 'plugin_a', '2026-01-01T00:00:00+00:00', '{}', NULL)
+        """
+    )
+    await plugin_database.commit()
+
+    deleted_plugin_ids = await repository.delete_all_installations_for_guild(1111)
+
+    assert sorted(deleted_plugin_ids) == ["plugin_a", "plugin_b"]
+    assert await repository.get_installation(1111, "plugin_a") is None
+    assert await repository.get_installation(1111, "plugin_b") is None
+    due_tasks = await repository.get_due_scheduled_tasks("2099-01-01T00:00:00+00:00")
+    assert due_tasks == []
+    # 另一個伺服器的安裝不受影響
+    assert await repository.get_installation(2222, "plugin_a") is not None
+
+
 async def test_get_enabled_installations_includes_manifest_json(plugin_database: aiosqlite.Connection) -> None:
     await _submit_example_plugin()
     await repository.create_installation(1111, "temp_role_punishment", "1.0.0", ["manage_roles"])

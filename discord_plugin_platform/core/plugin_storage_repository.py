@@ -121,32 +121,43 @@ async def storage_set(
         raise StorageLimitExceededError(f"value 大小超過上限（{MAX_STORAGE_VALUE_BYTES} bytes）")
 
     db = db or get_db()
-    async with db.execute(
-        "SELECT 1 FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key = ?",
-        (guild_id, plugin_id, key),
-    ) as cursor:
-        key_already_exists = await cursor.fetchone() is not None
 
-    if not key_already_exists:
-        async with db.execute(
-            "SELECT COUNT(*) FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ?",
-            (guild_id, plugin_id),
-        ) as cursor:
-            row = await cursor.fetchone()
-        if row[0] >= MAX_STORAGE_KEYS_PER_INSTALLATION:
-            raise StorageLimitExceededError(
-                f"這個安裝的 storage key 數量已達上限（{MAX_STORAGE_KEYS_PER_INSTALLATION} 筆）"
-            )
-
-    await db.execute(
+    # 「檢查數量上限」跟「寫入」原本是兩個分開的陳述式（先 SELECT COUNT(*) 再
+    # INSERT），中間有 TOCTOU 競態視窗：兩個併發呼叫可能同時通過檢查，實際
+    # 寫入後總數超過上限。改成一個原子陳述式：SELECT 的 WHERE 子句同時決定
+    # 「這個 key 已經存在（覆蓋不受數量限制）」或「還沒超過上限」才真的插入，
+    # 兩個條件的判斷與寫入在同一個陳述式裡完成，SQLite 保證原子性；插入 0 筆
+    # （WHERE 兩個條件都不成立）就代表被上限擋下。
+    cursor = await db.execute(
         """
         INSERT INTO plugin_kv_store (guild_id, plugin_id, key, value_json, updated_at)
-        VALUES (?, ?, ?, ?, ?)
+        SELECT ?, ?, ?, ?, ?
+        WHERE EXISTS (
+            SELECT 1 FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key = ?
+        ) OR (
+            SELECT COUNT(*) FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ?
+        ) < ?
         ON CONFLICT (guild_id, plugin_id, key)
         DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at
         """,
-        (guild_id, plugin_id, key, value_json, _now_iso()),
+        (
+            guild_id,
+            plugin_id,
+            key,
+            value_json,
+            _now_iso(),
+            guild_id,
+            plugin_id,
+            key,
+            guild_id,
+            plugin_id,
+            MAX_STORAGE_KEYS_PER_INSTALLATION,
+        ),
     )
+    if cursor.rowcount == 0:
+        raise StorageLimitExceededError(
+            f"這個安裝的 storage key 數量已達上限（{MAX_STORAGE_KEYS_PER_INSTALLATION} 筆）"
+        )
 
 
 async def storage_delete(guild_id: int, plugin_id: str, key: str, db: aiosqlite.Connection | None = None) -> None:
@@ -164,6 +175,22 @@ async def storage_delete(guild_id: int, plugin_id: str, key: str, db: aiosqlite.
         "DELETE FROM plugin_kv_store WHERE guild_id = ? AND plugin_id = ? AND key = ?",
         (guild_id, plugin_id, key),
     )
+
+
+async def delete_all_storage_for_guild(guild_id: int) -> None:
+    """
+    刪除指定伺服器所有外掛的 KV 儲存資料，機器人被踢出伺服器時呼叫。
+
+    只清 plugin_kv_store：plugin_scheduled_tasks 由
+    core.repository.delete_all_installations_for_guild() 一併清掉，不用在
+    這裡重複刪一次。
+
+    Args:
+        guild_id: 伺服器 ID
+    """
+    db = get_db()
+    await db.execute("DELETE FROM plugin_kv_store WHERE guild_id = ?", (guild_id,))
+    await db.commit()
 
 
 async def storage_list_keys(
@@ -283,25 +310,21 @@ async def create_scheduled_task(
         )
 
     db = db or get_db()
-    async with db.execute(
-        "SELECT COUNT(*) FROM plugin_scheduled_tasks WHERE guild_id = ? AND plugin_id = ?",
-        (guild_id, plugin_id),
-    ) as cursor:
-        row = await cursor.fetchone()
-    if row[0] >= MAX_SCHEDULED_TASKS_PER_INSTALLATION:
-        raise ScheduledTaskLimitExceededError(
-            f"這個安裝的排程任務數量已達上限（{MAX_SCHEDULED_TASKS_PER_INSTALLATION} 筆）"
-        )
 
+    # 同 storage_set()：數量檢查跟寫入合併成一個原子陳述式，避免併發下兩個
+    # 呼叫同時通過 COUNT 檢查、實際超過上限（見 design.md 第 12.3 節）。
     task_id = str(uuid.uuid4())
     run_at = datetime.datetime.fromtimestamp(
         time.time() + delay_seconds, tz=datetime.timezone.utc
     ).isoformat()
-    await db.execute(
+    cursor = await db.execute(
         """
         INSERT INTO plugin_scheduled_tasks
             (task_id, guild_id, plugin_id, run_at, payload_json, recurring_interval_seconds)
-        VALUES (?, ?, ?, ?, ?, ?)
+        SELECT ?, ?, ?, ?, ?, ?
+        WHERE (
+            SELECT COUNT(*) FROM plugin_scheduled_tasks WHERE guild_id = ? AND plugin_id = ?
+        ) < ?
         """,
         (
             task_id,
@@ -310,8 +333,15 @@ async def create_scheduled_task(
             run_at,
             payload_json,
             recurring_interval_seconds,
+            guild_id,
+            plugin_id,
+            MAX_SCHEDULED_TASKS_PER_INSTALLATION,
         ),
     )
+    if cursor.rowcount == 0:
+        raise ScheduledTaskLimitExceededError(
+            f"這個安裝的排程任務數量已達上限（{MAX_SCHEDULED_TASKS_PER_INSTALLATION} 筆）"
+        )
     return task_id
 
 

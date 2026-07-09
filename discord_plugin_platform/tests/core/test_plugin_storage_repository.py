@@ -3,6 +3,8 @@ core/plugin_storage_repository.py 的測試：storage_* 的基本讀寫，以及
 key 長度／value 大小／每安裝 key 數量的濫用防護上限。
 """
 
+import asyncio
+
 import pytest
 
 from core import database, plugin_storage_repository
@@ -112,3 +114,47 @@ async def test_create_scheduled_task_rejects_too_many_tasks(temp_db, monkeypatch
 
     with pytest.raises(ScheduledTaskLimitExceededError, match="排程任務數量已達上限"):
         await plugin_storage_repository.create_scheduled_task(1, "plugin_a", 60, "task", {})
+
+
+async def test_concurrent_storage_set_never_exceeds_key_limit(temp_db, monkeypatch):
+    """
+    數量檢查跟寫入原本是分開的兩個陳述式（先 SELECT COUNT(*) 再 INSERT），中間
+    有競態視窗：多個併發呼叫可能同時通過檢查、實際寫入後總數超過上限。這裡真的
+    併發打 20 個不同 key 的 storage_set()，上限設 5，驗證最後不管有多少個成功，
+    實際筆數絕對不會超過上限（改用原子的 INSERT...SELECT...WHERE 之後才能保證）。
+    """
+    monkeypatch.setattr(plugin_storage_repository, "MAX_STORAGE_KEYS_PER_INSTALLATION", 5)
+
+    async def try_set(index: int) -> bool:
+        try:
+            await plugin_storage_repository.storage_set(1, "plugin_a", f"key{index}", index)
+            return True
+        except StorageLimitExceededError:
+            return False
+
+    results = await asyncio.gather(*[try_set(i) for i in range(20)])
+
+    succeeded_count = sum(results)
+    actual_keys = await plugin_storage_repository.storage_list_keys(1, "plugin_a", "")
+    assert succeeded_count == len(actual_keys)
+    assert len(actual_keys) <= 5
+
+
+async def test_concurrent_create_scheduled_task_never_exceeds_limit(temp_db, monkeypatch):
+    """
+    同 test_concurrent_storage_set_never_exceeds_key_limit()，驗證
+    create_scheduled_task() 的數量上限在併發下也不會被繞過。
+    """
+    monkeypatch.setattr(plugin_storage_repository, "MAX_SCHEDULED_TASKS_PER_INSTALLATION", 5)
+
+    async def try_create(index: int) -> bool:
+        try:
+            await plugin_storage_repository.create_scheduled_task(1, "plugin_a", 60, f"task{index}", {})
+            return True
+        except ScheduledTaskLimitExceededError:
+            return False
+
+    results = await asyncio.gather(*[try_create(i) for i in range(20)])
+
+    succeeded_count = sum(results)
+    assert succeeded_count == 5

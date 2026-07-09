@@ -27,6 +27,11 @@ def test_invalid_json_raises():
         parse_manifest("not valid json")
 
 
+def test_non_object_manifest_raises_manifest_validation_error() -> None:
+    with pytest.raises(ManifestValidationError, match="JSON 物件"):
+        parse_manifest(json.dumps(["not", "an", "object"]))
+
+
 def test_unknown_event_hook_raises():
     manifest = {**VALID_MANIFEST, "event_hooks": ["on_something_undefined"]}
     with pytest.raises(ManifestValidationError):
@@ -36,6 +41,20 @@ def test_unknown_event_hook_raises():
 def test_unknown_capability_raises():
     manifest = {**VALID_MANIFEST, "required_capabilities": ["kick_member"]}
     with pytest.raises(ManifestValidationError):
+        parse_manifest(json.dumps(manifest))
+
+
+@pytest.mark.parametrize("event_hooks", ["on_message", [123], None])
+def test_event_hooks_must_be_string_list(event_hooks: object) -> None:
+    manifest = {**VALID_MANIFEST, "event_hooks": event_hooks}
+    with pytest.raises(ManifestValidationError, match="event_hooks"):
+        parse_manifest(json.dumps(manifest))
+
+
+@pytest.mark.parametrize("required_capabilities", ["storage", [123], None])
+def test_required_capabilities_must_be_string_list(required_capabilities: object) -> None:
+    manifest = {**VALID_MANIFEST, "required_capabilities": required_capabilities}
+    with pytest.raises(ManifestValidationError, match="required_capabilities"):
         parse_manifest(json.dumps(manifest))
 
 

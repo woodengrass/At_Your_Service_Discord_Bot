@@ -110,6 +110,8 @@ def parse_manifest(manifest_json: str) -> PluginManifest:
         data = json.loads(manifest_json)
     except json.JSONDecodeError as error:
         raise ManifestValidationError(f"manifest 不是合法的 JSON：{error}") from error
+    if not isinstance(data, dict):
+        raise ManifestValidationError("manifest 必須是 JSON 物件")
 
     for required_field in ("name", "version", "description"):
         value = data.get(required_field)
@@ -117,11 +119,17 @@ def parse_manifest(manifest_json: str) -> PluginManifest:
             raise ManifestValidationError(f"manifest 缺少必要欄位或欄位不是非空字串：{required_field}")
 
     event_hooks = data.get("event_hooks", [])
+    if not isinstance(event_hooks, list) or not all(isinstance(event_hook, str) for event_hook in event_hooks):
+        raise ManifestValidationError("event_hooks 必須是字串陣列")
     invalid_hooks = set(event_hooks) - VALID_EVENT_HOOKS
     if invalid_hooks:
         raise ManifestValidationError(f"event_hooks 含有未定義的事件名稱：{invalid_hooks}")
 
     required_capabilities = data.get("required_capabilities", [])
+    if not isinstance(required_capabilities, list) or not all(
+        isinstance(capability, str) for capability in required_capabilities
+    ):
+        raise ManifestValidationError("required_capabilities 必須是字串陣列")
     invalid_capabilities = set(required_capabilities) - VALID_CAPABILITIES
     if invalid_capabilities:
         raise ManifestValidationError(f"required_capabilities 含有未定義的能力旗標：{invalid_capabilities}")

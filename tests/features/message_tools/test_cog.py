@@ -1,7 +1,5 @@
 import datetime
-import gzip
 from collections.abc import AsyncIterator
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -22,7 +20,7 @@ class FakeHistoryMessage:
 
 
 class FakeExportChannel:
-    """模擬可讀取歷史並接收 gzip 分片的 Discord 頻道。"""
+    """模擬可讀取歷史並接收純文字分片的 Discord 頻道。"""
 
     def __init__(self, messages: list[FakeHistoryMessage]) -> None:
         self.name = "general"
@@ -36,24 +34,9 @@ class FakeExportChannel:
             yield message
 
     async def send(self, content: str, file: discord.File) -> None:
-        """在檔案被刪除前讀取並保存上傳的 gzip 內容。"""
+        """在檔案被刪除前讀取並保存上傳的文字內容。"""
         file.fp.seek(0)
-        with gzip.GzipFile(fileobj=file.fp, mode="rb") as compressed_file:
-            self.uploaded_contents.append(compressed_file.read())
-
-
-def test_compress_export_file_preserves_content(tmp_path: Path) -> None:
-    """聊天匯出分片壓縮後應可完整還原。"""
-    source_path = tmp_path / "chat.txt"
-    compressed_path = tmp_path / "chat.txt.gz"
-    content = "第一則訊息\n第二則訊息\n".encode()
-    source_path.write_bytes(content)
-    cog = MessageTools()
-
-    cog._compress_export_file(str(source_path), str(compressed_path))
-
-    with gzip.open(compressed_path, "rb") as compressed_file:
-        assert compressed_file.read() == content
+        self.uploaded_contents.append(file.fp.read())
 
 
 @pytest.mark.asyncio

@@ -50,6 +50,8 @@
 
 ## 安裝
 
+### Windows PowerShell
+
 ```powershell
 git clone <repository-url>
 cd At_Your_Service_Discord_Bot
@@ -59,7 +61,31 @@ python -m pip install --upgrade pip
 python -m pip install -e .
 ```
 
-目前專案尚未提供套件鎖定檔，上述清單取自程式碼實際使用的第三方套件。
+### Linux
+
+以下以 Ubuntu/Debian 為例。`libzbar0` 是 QR code 解碼套件 `pyzbar` 需要的系統函式庫。
+
+```bash
+sudo apt update
+sudo apt install -y git python3.11 python3.11-venv python3.11-dev libzbar0
+git clone <repository-url>
+cd At_Your_Service_Discord_Bot
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+cp .env.example token.env
+```
+
+編輯 `token.env` 後啟動：
+
+```bash
+python bot.py
+```
+
+若發行版套件庫沒有 `python3.11`，請先用該發行版建議方式安裝 Python 3.11，再回到建立 venv 的步驟。
+
+目前專案尚未提供套件鎖定檔，Python 套件會由 `pyproject.toml` 安裝。
 
 ## Discord 設定
 
@@ -71,8 +97,16 @@ python -m pip install -e .
 
 ## 環境變數
 
+Windows PowerShell：
+
 ```powershell
 Copy-Item .env.example token.env
+```
+
+Linux：
+
+```bash
+cp .env.example token.env
 ```
 
 編輯 `token.env`：
@@ -114,6 +148,8 @@ GOOGLE_SAFE_BROWSING_KEY=your_google_safe_browsing_key
 修改模型前，請確認 Groq 帳號可存取該模型。
 
 ## 啟動
+
+Windows PowerShell 或已啟用 venv 的 Linux shell：
 
 ```powershell
 python bot.py

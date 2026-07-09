@@ -67,6 +67,8 @@ To summarize a conversation, reply to its starting message and mention the bot. 
 
 ## Installation
 
+### Windows PowerShell
+
 ```powershell
 git clone <repository-url>
 cd At_Your_Service_Discord_Bot
@@ -76,7 +78,31 @@ python -m pip install --upgrade pip
 python -m pip install -e .
 ```
 
-The project does not currently include a dependency lock file. The packages above are the third-party dependencies imported by the source code.
+### Linux
+
+The following example targets Ubuntu/Debian. `libzbar0` is required by `pyzbar` for QR code decoding.
+
+```bash
+sudo apt update
+sudo apt install -y git python3.11 python3.11-venv python3.11-dev libzbar0
+git clone <repository-url>
+cd At_Your_Service_Discord_Bot
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+cp .env.example token.env
+```
+
+Edit `token.env`, then start the bot:
+
+```bash
+python bot.py
+```
+
+If your distribution does not provide `python3.11` in its package repositories, install Python 3.11 using the distribution's recommended method first, then continue from the venv step.
+
+The project does not currently include a dependency lock file. Python packages are installed from `pyproject.toml`.
 
 ## Discord Setup
 
@@ -88,8 +114,16 @@ The project does not currently include a dependency lock file. The packages abov
 
 ## Environment Variables
 
+Windows PowerShell:
+
 ```powershell
 Copy-Item .env.example token.env
+```
+
+Linux:
+
+```bash
+cp .env.example token.env
 ```
 
 Edit `token.env`:
@@ -131,6 +165,8 @@ Global settings are stored in `config/config.json`.
 Verify that your Groq account can access a model before changing its name.
 
 ## Running the Bot
+
+Windows PowerShell or a Linux shell with the venv activated:
 
 ```powershell
 python bot.py
